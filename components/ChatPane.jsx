@@ -1,54 +1,23 @@
 "use client"
 
-import { useState, forwardRef, useImperativeHandle, useRef } from "react"
-import { Pencil, RefreshCw, Check, X, Square } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Pencil, RefreshCw, Check, X } from "lucide-react"
 import Message from "./Message"
 import Composer from "./Composer"
 import { cls, timeAgo } from "./utils"
 
-function ThinkingMessage({ onPause }) {
-  return (
-    <Message role="assistant">
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1">
-          <div className="h-2 w-2 animate-bounce rounded-full bg-zinc-400 [animation-delay:-0.3s]"></div>
-          <div className="h-2 w-2 animate-bounce rounded-full bg-zinc-400 [animation-delay:-0.15s]"></div>
-          <div className="h-2 w-2 animate-bounce rounded-full bg-zinc-400"></div>
-        </div>
-        <span className="text-sm text-zinc-500">AI is thinking...</span>
-        <button
-          onClick={onPause}
-          className="ml-auto inline-flex items-center gap-1 rounded-full border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
-        >
-          <Square className="h-3 w-3" /> Pause
-        </button>
-      </div>
-    </Message>
-  )
-}
-
-const ChatPane = forwardRef(function ChatPane(
-  { conversation, onSend, onEditMessage, onResendMessage, isThinking, onPauseThinking },
-  ref,
-) {
+export default function ChatPane({ conversation, onSend, onEditMessage, onResendMessage }) {
   const [editingId, setEditingId] = useState(null)
   const [draft, setDraft] = useState("")
   const [busy, setBusy] = useState(false)
-  const composerRef = useRef(null)
+  const [mounted, setMounted] = useState(false)
 
-  useImperativeHandle(
-    ref,
-    () => ({
-      insertTemplate: (templateContent) => {
-        composerRef.current?.insertTemplate(templateContent)
-      },
-    }),
-    [],
-  )
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   if (!conversation) return null
 
-  const tags = ["Certified", "Personalized", "Experienced", "Helpful"]
   const messages = Array.isArray(conversation.messages) ? conversation.messages : []
   const count = messages.length || conversation.messageCount || 0
 
@@ -79,23 +48,12 @@ const ChatPane = forwardRef(function ChatPane(
           <span className="block leading-[1.05] font-sans text-2xl">{conversation.title}</span>
         </div>
         <div className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
-          Updated {timeAgo(conversation.updatedAt)} · {count} messages
-        </div>
-
-        <div className="mb-6 flex flex-wrap gap-2 border-b border-zinc-200 pb-5 dark:border-zinc-800">
-          {tags.map((t) => (
-            <span
-              key={t}
-              className="inline-flex items-center rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-700 dark:border-zinc-800 dark:text-zinc-200"
-            >
-              {t}
-            </span>
-          ))}
+          Updated {mounted ? timeAgo(conversation.updatedAt) : "recently"} · {count} messages
         </div>
 
         {messages.length === 0 ? (
           <div className="rounded-xl border border-dashed border-zinc-300 p-6 text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-            No messages yet. Say hello to start.
+            No messages yet.
           </div>
         ) : (
           <>
@@ -132,7 +90,18 @@ const ChatPane = forwardRef(function ChatPane(
                   </div>
                 ) : (
                   <Message role={m.role}>
-                    <div className="whitespace-pre-wrap">{m.content}</div>
+                    {m.role === "assistant" && !m.content?.trim() ? (
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1">
+                          <div className="h-2 w-2 animate-bounce rounded-full bg-zinc-400 [animation-delay:-0.3s]" />
+                          <div className="h-2 w-2 animate-bounce rounded-full bg-zinc-400 [animation-delay:-0.15s]" />
+                          <div className="h-2 w-2 animate-bounce rounded-full bg-zinc-400" />
+                        </div>
+                        <span className="text-sm text-zinc-500">Thinking through this...</span>
+                      </div>
+                    ) : (
+                      <div className="whitespace-pre-wrap">{m.content}</div>
+                    )}
                     {m.role === "user" && (
                       <div className="mt-1 flex gap-2 text-[11px] text-zinc-500">
                         <button className="inline-flex items-center gap-1 hover:underline" onClick={() => startEdit(m)}>
@@ -150,13 +119,11 @@ const ChatPane = forwardRef(function ChatPane(
                 )}
               </div>
             ))}
-            {isThinking && <ThinkingMessage onPause={onPauseThinking} />}
           </>
         )}
       </div>
 
       <Composer
-        ref={composerRef}
         onSend={async (text) => {
           if (!text.trim()) return
           setBusy(true)
@@ -167,6 +134,4 @@ const ChatPane = forwardRef(function ChatPane(
       />
     </div>
   )
-})
-
-export default ChatPane
+}

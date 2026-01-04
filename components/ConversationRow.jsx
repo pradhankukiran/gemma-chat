@@ -7,8 +7,13 @@ import { motion, AnimatePresence } from "framer-motion"
 
 export default function ConversationRow({ data, active, onSelect, onTogglePin, onDelete, onRename, showMeta }) {
   const [showMenu, setShowMenu] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const menuRef = useRef(null)
   const count = Array.isArray(data.messages) ? data.messages.length : data.messageCount
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -51,8 +56,16 @@ export default function ConversationRow({ data, active, onSelect, onTogglePin, o
 
   return (
     <div className="group relative">
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={onSelect}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault()
+            onSelect?.()
+          }
+        }}
         className={cls(
           "-mx-1 flex w-[calc(100%+8px)] items-center gap-2 rounded-lg px-2 py-2 text-left",
           active
@@ -65,7 +78,9 @@ export default function ConversationRow({ data, active, onSelect, onTogglePin, o
           <div className="flex items-center gap-2">
             {data.pinned && <Pin className="h-3 w-3 shrink-0 text-zinc-500 dark:text-zinc-400" />}
             <span className="truncate text-sm font-medium tracking-tight">{data.title}</span>
-            <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">{timeAgo(data.updatedAt)}</span>
+            <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
+              {mounted ? timeAgo(data.updatedAt) : "recently"}
+            </span>
           </div>
           {showMeta && <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">{count} messages</div>}
         </div>
@@ -124,7 +139,7 @@ export default function ConversationRow({ data, active, onSelect, onTogglePin, o
             )}
           </AnimatePresence>
         </div>
-      </button>
+      </div>
 
       <div className="pointer-events-none absolute left-[calc(100%+6px)] top-1 hidden w-64 rounded-xl border border-zinc-200 bg-white p-3 text-xs text-zinc-700 shadow-lg dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 md:group-hover:block">
         <div className="line-clamp-6 whitespace-pre-wrap">{data.preview}</div>

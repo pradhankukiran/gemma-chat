@@ -4,7 +4,7 @@ export function timeAgo(date) {
   const d = typeof date === "string" ? new Date(date) : date;
   const now = new Date();
   const sec = Math.max(1, Math.floor((now - d) / 1000));
-  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
   const ranges = [
     [60, "seconds"], [3600, "minutes"], [86400, "hours"],
     [604800, "days"], [2629800, "weeks"], [31557600, "months"],
@@ -26,5 +26,3 @@ export function timeAgo(date) {
   }
   return rtf.format(value, /** @type {Intl.RelativeTimeFormatUnit} */ (unit));
 }
-
-export const makeId = (p) => `${p}${Math.random().toString(36).slice(2, 10)}`;

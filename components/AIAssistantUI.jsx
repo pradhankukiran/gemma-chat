@@ -1,22 +1,17 @@
 "use client"
 
 import React, { useEffect, useMemo, useRef, useState } from "react"
-import { Calendar, LayoutGrid, MoreHorizontal } from "lucide-react"
 import Sidebar from "./Sidebar"
-import Header from "./Header"
 import ChatPane from "./ChatPane"
-import GhostIconButton from "./GhostIconButton"
-import ThemeToggle from "./ThemeToggle"
-import { INITIAL_CONVERSATIONS, INITIAL_TEMPLATES, INITIAL_FOLDERS } from "./mockData"
 
 export default function AIAssistantUI() {
-  const [theme, setTheme] = useState(() => {
-    const saved = typeof window !== "undefined" && localStorage.getItem("theme")
-    if (saved) return saved
-    if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)
-      return "dark"
-    return "light"
-  })
+  const apiBase = process.env.NEXT_PUBLIC_MODAL_API_BASE || "https://pradhankukiran--medgemma-modal-api-fastapi-app.modal.run"
+  const generationDefaults = { max_new_tokens: 512, temperature: 0.7, top_p: 0.95 }
+  const activeRequestRef = useRef(null)
+  const defaultCollapsed = { pinned: true, recent: false }
+  const [prefsLoaded, setPrefsLoaded] = useState(false)
+
+  const [theme, setTheme] = useState("light")
 
   useEffect(() => {
     try {
@@ -24,9 +19,20 @@ export default function AIAssistantUI() {
       else document.documentElement.classList.remove("dark")
       document.documentElement.setAttribute("data-theme", theme)
       document.documentElement.style.colorScheme = theme
-      localStorage.setItem("theme", theme)
+      if (prefsLoaded) localStorage.setItem("theme", theme)
     } catch {}
-  }, [theme])
+  }, [theme, prefsLoaded])
+
+  useEffect(() => {
+    try {
+      const savedTheme = localStorage.getItem("theme")
+      if (savedTheme) {
+        setTheme(savedTheme)
+      } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+        setTheme("dark")
+      }
+    } catch {}
+  }, [])
 
   useEffect(() => {
     try {
@@ -42,45 +48,39 @@ export default function AIAssistantUI() {
   }, [])
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState(() => {
-    try {
-      const raw = localStorage.getItem("sidebar-collapsed")
-      return raw ? JSON.parse(raw) : { pinned: true, recent: false, folders: true, templates: true }
-    } catch {
-      return { pinned: true, recent: false, folders: true, templates: true }
-    }
-  })
+  const [collapsed, setCollapsed] = useState(defaultCollapsed)
   useEffect(() => {
+    if (!prefsLoaded) return
     try {
       localStorage.setItem("sidebar-collapsed", JSON.stringify(collapsed))
     } catch {}
-  }, [collapsed])
+  }, [collapsed, prefsLoaded])
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    try {
-      const saved = localStorage.getItem("sidebar-collapsed-state")
-      return saved ? JSON.parse(saved) : false
-    } catch {
-      return false
-    }
-  })
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   useEffect(() => {
+    if (!prefsLoaded) return
     try {
       localStorage.setItem("sidebar-collapsed-state", JSON.stringify(sidebarCollapsed))
     } catch {}
-  }, [sidebarCollapsed])
+  }, [sidebarCollapsed, prefsLoaded])
 
-  const [conversations, setConversations] = useState(INITIAL_CONVERSATIONS)
+  useEffect(() => {
+    try {
+      const rawCollapsed = localStorage.getItem("sidebar-collapsed")
+      if (rawCollapsed) setCollapsed(JSON.parse(rawCollapsed))
+      const rawSidebar = localStorage.getItem("sidebar-collapsed-state")
+      if (rawSidebar) setSidebarCollapsed(JSON.parse(rawSidebar))
+    } catch {}
+    setPrefsLoaded(true)
+  }, [])
+
+  const [conversations, setConversations] = useState([])
   const [selectedId, setSelectedId] = useState(null)
-  const [templates, setTemplates] = useState(INITIAL_TEMPLATES)
-  const [folders, setFolders] = useState(INITIAL_FOLDERS)
 
   const [query, setQuery] = useState("")
   const searchRef = useRef(null)
 
-  const [isThinking, setIsThinking] = useState(false)
-  const [thinkingConvId, setThinkingConvId] = useState(null)
 
   useEffect(() => {
     const onKey = (e) => {
@@ -101,12 +101,6 @@ export default function AIAssistantUI() {
     return () => window.removeEventListener("keydown", onKey)
   }, [sidebarOpen, conversations])
 
-  useEffect(() => {
-    if (!selectedId && conversations.length > 0) {
-      createNewChat()
-    }
-  }, [])
-
   const filtered = useMemo(() => {
     if (!query.trim()) return conversations
     const q = query.toLowerCase()
@@ -120,12 +114,6 @@ export default function AIAssistantUI() {
     .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
     .slice(0, 10)
 
-  const folderCounts = React.useMemo(() => {
-    const map = Object.fromEntries(folders.map((f) => [f.name, 0]))
-    for (const c of conversations) if (map[c.folder] != null) map[c.folder] += 1
-    return map
-  }, [conversations, folders])
-
   function togglePin(id) {
     setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, pinned: !c.pinned } : c)))
   }
@@ -134,12 +122,11 @@ export default function AIAssistantUI() {
     const id = Math.random().toString(36).slice(2)
     const item = {
       id,
-      title: "New Chat",
+      title: "New chat",
       updatedAt: new Date().toISOString(),
       messageCount: 0,
-      preview: "Say hello to start...",
+      preview: "",
       pinned: false,
-      folder: "Work Projects",
       messages: [], // Ensure messages array is empty for new chats
     }
     setConversations((prev) => [item, ...prev])
@@ -147,22 +134,20 @@ export default function AIAssistantUI() {
     setSidebarOpen(false)
   }
 
-  function createFolder() {
-    const name = prompt("Folder name")
-    if (!name) return
-    if (folders.some((f) => f.name.toLowerCase() === name.toLowerCase())) return alert("Folder already exists.")
-    setFolders((prev) => [...prev, { id: Math.random().toString(36).slice(2), name }])
-  }
 
-  function sendMessage(convId, content) {
+  async function sendMessage(convId, content) {
     if (!content.trim()) return
     const now = new Date().toISOString()
     const userMsg = { id: Math.random().toString(36).slice(2), role: "user", content, createdAt: now }
+    const assistantId = Math.random().toString(36).slice(2)
+    const assistantMsg = { id: assistantId, role: "assistant", content: "", createdAt: now }
+    const conv = conversations.find((c) => c.id === convId)
+    const history = [...(conv?.messages || []), userMsg].map((m) => ({ role: m.role, content: m.content }))
 
     setConversations((prev) =>
       prev.map((c) => {
         if (c.id !== convId) return c
-        const msgs = [...(c.messages || []), userMsg]
+        const msgs = [...(c.messages || []), userMsg, assistantMsg]
         return {
           ...c,
           messages: msgs,
@@ -173,35 +158,97 @@ export default function AIAssistantUI() {
       }),
     )
 
-    setIsThinking(true)
-    setThinkingConvId(convId)
+    if (activeRequestRef.current?.controller) {
+      activeRequestRef.current.controller.abort()
+    }
 
-    const currentConvId = convId
-    setTimeout(() => {
-      // Always clear thinking state and generate response for this specific conversation
-      setIsThinking(false)
-      setThinkingConvId(null)
+    const controller = new AbortController()
+    activeRequestRef.current = { controller, convId, assistantId }
+
+    const updateAssistant = (text, finalize = false) => {
       setConversations((prev) =>
         prev.map((c) => {
-          if (c.id !== currentConvId) return c
-          const ack = `Got it — I'll help with that.`
-          const asstMsg = {
-            id: Math.random().toString(36).slice(2),
-            role: "assistant",
-            content: ack,
-            createdAt: new Date().toISOString(),
-          }
-          const msgs = [...(c.messages || []), asstMsg]
+          if (c.id !== convId) return c
+          const msgs = (c.messages || []).map((m) => (m.id === assistantId ? { ...m, content: text } : m))
           return {
             ...c,
             messages: msgs,
-            updatedAt: new Date().toISOString(),
-            messageCount: msgs.length,
-            preview: asstMsg.content.slice(0, 80),
+            preview: finalize ? text.slice(0, 80) || c.preview : c.preview,
+            updatedAt: finalize ? new Date().toISOString() : c.updatedAt,
           }
         }),
       )
-    }, 2000)
+    }
+
+    const payload = { messages: history, ...generationDefaults }
+
+    let fullText = ""
+
+    try {
+      const res = await fetch(`${apiBase}/chat_stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      })
+
+      if (!res.ok || !res.body) {
+        throw new Error(`Streaming request failed: ${res.status}`)
+      }
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ""
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+
+        let boundary = buffer.indexOf("\n\n")
+        while (boundary !== -1) {
+          const chunk = buffer.slice(0, boundary)
+          buffer = buffer.slice(boundary + 2)
+
+          const lines = chunk.split("\n")
+          for (const line of lines) {
+            if (!line.startsWith("data:")) continue
+            const data = line.replace(/^data:\s?/, "")
+            if (!data) continue
+            if (data.trim() === "[DONE]") {
+              updateAssistant(fullText, true)
+              return
+            }
+            fullText += data
+            updateAssistant(fullText, false)
+          }
+
+          boundary = buffer.indexOf("\n\n")
+        }
+      }
+
+      updateAssistant(fullText, true)
+    } catch (err) {
+      if (err?.name === "AbortError") {
+        updateAssistant(fullText || "(stopped)", true)
+      } else {
+        try {
+          const fallback = await fetch(`${apiBase}/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+          if (!fallback.ok) throw new Error(`Fallback request failed: ${fallback.status}`)
+          const data = await fallback.json()
+          updateAssistant(data?.response || "No response.", true)
+        } catch (fallbackErr) {
+          updateAssistant("Sorry — the API request failed. Please try again.", true)
+        }
+      }
+    } finally {
+      if (activeRequestRef.current?.assistantId === assistantId) {
+        activeRequestRef.current = null
+      }
+    }
   }
 
   function editMessage(convId, messageId, newContent) {
@@ -228,49 +275,20 @@ export default function AIAssistantUI() {
     sendMessage(convId, msg.content)
   }
 
-  function pauseThinking() {
-    setIsThinking(false)
-    setThinkingConvId(null)
-  }
-
-  function handleUseTemplate(template) {
-    // This will be passed down to the Composer component
-    // The Composer will handle inserting the template content
-    if (composerRef.current) {
-      composerRef.current.insertTemplate(template.content)
+  useEffect(() => {
+    if (!selectedId) {
+      createNewChat()
     }
-  }
-
-  const composerRef = useRef(null)
+  }, [])
 
   const selected = conversations.find((c) => c.id === selectedId) || null
 
   return (
     <div className="h-screen w-full bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
-      <div className="md:hidden sticky top-0 z-40 flex items-center gap-2 border-b border-zinc-200/60 bg-white/80 px-3 py-2 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/70">
-        <div className="ml-1 flex items-center gap-2 text-sm font-semibold tracking-tight">
-          <span className="inline-flex h-4 w-4 items-center justify-center">✱</span> AI Assistant
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <GhostIconButton label="Schedule">
-            <Calendar className="h-4 w-4" />
-          </GhostIconButton>
-          <GhostIconButton label="Apps">
-            <LayoutGrid className="h-4 w-4" />
-          </GhostIconButton>
-          <GhostIconButton label="More">
-            <MoreHorizontal className="h-4 w-4" />
-          </GhostIconButton>
-          <ThemeToggle theme={theme} setTheme={setTheme} />
-        </div>
-      </div>
-
-      <div className="mx-auto flex h-[calc(100vh-0px)] max-w-[1400px]">
+      <div className="flex h-[calc(100vh-0px)] w-full">
         <Sidebar
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
-          theme={theme}
-          setTheme={setTheme}
           collapsed={collapsed}
           setCollapsed={setCollapsed}
           sidebarCollapsed={sidebarCollapsed}
@@ -278,31 +296,21 @@ export default function AIAssistantUI() {
           conversations={conversations}
           pinned={pinned}
           recent={recent}
-          folders={folders}
-          folderCounts={folderCounts}
           selectedId={selectedId}
           onSelect={(id) => setSelectedId(id)}
           togglePin={togglePin}
           query={query}
           setQuery={setQuery}
           searchRef={searchRef}
-          createFolder={createFolder}
           createNewChat={createNewChat}
-          templates={templates}
-          setTemplates={setTemplates}
-          onUseTemplate={handleUseTemplate}
         />
 
         <main className="relative flex min-w-0 flex-1 flex-col">
-          <Header createNewChat={createNewChat} sidebarCollapsed={sidebarCollapsed} setSidebarOpen={setSidebarOpen} />
           <ChatPane
-            ref={composerRef}
             conversation={selected}
             onSend={(content) => selected && sendMessage(selected.id, content)}
             onEditMessage={(messageId, newContent) => selected && editMessage(selected.id, messageId, newContent)}
             onResendMessage={(messageId) => selected && resendMessage(selected.id, messageId)}
-            isThinking={isThinking && thinkingConvId === selected?.id}
-            onPauseThinking={pauseThinking}
           />
         </main>
       </div>
