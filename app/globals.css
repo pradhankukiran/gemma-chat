@@ -1,82 +1,118 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* Modern Hospital System - Primary Palette */
+  --medical-navy: oklch(0.25 0.05 250);
+  --medical-navy-light: oklch(0.35 0.06 250);
+  --medical-slate: oklch(0.45 0.04 250);
+  --medical-blue: oklch(0.55 0.12 250);
+  --medical-sky: oklch(0.92 0.02 250);
+
+  /* Semantic Colors */
+  --medical-success: oklch(0.65 0.15 155);
+  --medical-warning: oklch(0.75 0.18 75);
+  --medical-alert: oklch(0.60 0.22 25);
+  --medical-critical: oklch(0.55 0.25 15);
+
+  /* Surface Colors */
+  --background: oklch(0.985 0.005 250);
+  --foreground: oklch(0.20 0.03 250);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.20 0.03 250);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --popover-foreground: oklch(0.20 0.03 250);
+
+  /* Interactive */
+  --primary: var(--medical-navy);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.96 0.01 250);
+  --secondary-foreground: oklch(0.25 0.04 250);
+  --muted: oklch(0.96 0.01 250);
+  --muted-foreground: oklch(0.50 0.02 250);
+  --accent: var(--medical-blue);
+  --accent-foreground: oklch(0.98 0 0);
+
+  /* Status */
+  --destructive: var(--medical-alert);
+  --destructive-foreground: oklch(0.98 0 0);
+  --warning: var(--medical-warning);
+  --success: var(--medical-success);
+
+  /* Borders & Inputs */
+  --border: oklch(0.90 0.01 250);
+  --input: oklch(0.96 0.01 250);
+  --ring: var(--medical-blue);
+
+  /* Charts - Medical themed */
+  --chart-1: var(--medical-navy);
+  --chart-2: var(--medical-blue);
+  --chart-3: var(--medical-success);
+  --chart-4: var(--medical-warning);
+  --chart-5: var(--medical-alert);
+
+  --radius: 0.5rem;
+
+  /* Sidebar */
+  --sidebar: oklch(0.98 0.005 250);
+  --sidebar-foreground: oklch(0.25 0.04 250);
+  --sidebar-primary: var(--medical-navy);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(0.94 0.02 250);
+  --sidebar-accent-foreground: oklch(0.25 0.04 250);
+  --sidebar-border: oklch(0.92 0.01 250);
+  --sidebar-ring: var(--medical-blue);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  /* Dark mode - deeper medical navy */
+  --background: oklch(0.14 0.02 250);
+  --foreground: oklch(0.95 0.01 250);
+  --card: oklch(0.18 0.02 250);
+  --card-foreground: oklch(0.95 0.01 250);
+  --popover: oklch(0.18 0.02 250);
+  --popover-foreground: oklch(0.95 0.01 250);
+
+  --primary: oklch(0.70 0.12 250);
+  --primary-foreground: oklch(0.12 0.02 250);
+  --secondary: oklch(0.22 0.02 250);
+  --secondary-foreground: oklch(0.95 0.01 250);
+  --muted: oklch(0.22 0.02 250);
+  --muted-foreground: oklch(0.65 0.02 250);
+  --accent: oklch(0.55 0.12 250);
+  --accent-foreground: oklch(0.95 0.01 250);
+
+  --destructive: oklch(0.50 0.20 20);
+  --destructive-foreground: oklch(0.95 0 0);
+
+  --border: oklch(0.28 0.02 250);
+  --input: oklch(0.22 0.02 250);
+  --ring: oklch(0.55 0.12 250);
+
+  --chart-1: oklch(0.60 0.12 250);
+  --chart-2: oklch(0.65 0.15 200);
+  --chart-3: oklch(0.65 0.15 155);
+  --chart-4: oklch(0.70 0.16 75);
+  --chart-5: oklch(0.60 0.20 25);
+
+  --sidebar: oklch(0.16 0.02 250);
+  --sidebar-foreground: oklch(0.95 0.01 250);
+  --sidebar-primary: oklch(0.65 0.12 250);
+  --sidebar-primary-foreground: oklch(0.95 0.01 250);
+  --sidebar-accent: oklch(0.22 0.02 250);
+  --sidebar-accent-foreground: oklch(0.95 0.01 250);
+  --sidebar-border: oklch(0.25 0.02 250);
+  --sidebar-ring: oklch(0.55 0.12 250);
 }
 
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback';
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+  --font-display: 'Inter', system-ui, sans-serif;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -101,10 +137,20 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Medical semantic colors */
+  --color-medical-navy: var(--medical-navy);
+  --color-medical-blue: var(--medical-blue);
+  --color-medical-success: var(--medical-success);
+  --color-medical-warning: var(--medical-warning);
+  --color-medical-alert: var(--medical-alert);
+  --color-medical-critical: var(--medical-critical);
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 6px);
+
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -120,6 +166,78 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01", "ss03";
   }
+}
+
+/* Medical Cross Icon Animation */
+@keyframes pulse-gentle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.medical-cross {
+  animation: pulse-gentle 3s ease-in-out infinite;
+}
+
+/* Priority Indicator Styles */
+.priority-critical {
+  color: var(--medical-critical);
+}
+
+.priority-high {
+  color: var(--medical-alert);
+}
+
+.priority-medium {
+  color: var(--medical-warning);
+}
+
+.priority-normal {
+  color: var(--medical-blue);
+}
+
+/* Subtle gradient for cards */
+.medical-card-gradient {
+  background: linear-gradient(
+    135deg,
+    oklch(1 0 0) 0%,
+    oklch(0.98 0.005 250) 100%
+  );
+}
+
+.dark .medical-card-gradient {
+  background: linear-gradient(
+    135deg,
+    oklch(0.18 0.02 250) 0%,
+    oklch(0.16 0.025 250) 100%
+  );
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(0.80 0.01 250);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.70 0.02 250);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: oklch(0.35 0.02 250);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.45 0.02 250);
 }

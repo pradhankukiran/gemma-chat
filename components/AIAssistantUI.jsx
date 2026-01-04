@@ -122,12 +122,12 @@ export default function AIAssistantUI() {
     const id = Math.random().toString(36).slice(2)
     const item = {
       id,
-      title: "New chat",
+      title: "New Clinical Session",
       updatedAt: new Date().toISOString(),
       messageCount: 0,
       preview: "",
       pinned: false,
-      messages: [], // Ensure messages array is empty for new chats
+      messages: [],
     }
     setConversations((prev) => [item, ...prev])
     setSelectedId(id)
@@ -231,18 +231,7 @@ export default function AIAssistantUI() {
       if (err?.name === "AbortError") {
         updateAssistant(fullText || "(stopped)", true)
       } else {
-        try {
-          const fallback = await fetch(`${apiBase}/chat`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          })
-          if (!fallback.ok) throw new Error(`Fallback request failed: ${fallback.status}`)
-          const data = await fallback.json()
-          updateAssistant(data?.response || "No response.", true)
-        } catch (fallbackErr) {
-          updateAssistant("Sorry — the API request failed. Please try again.", true)
-        }
+        updateAssistant("Unable to connect to the clinical AI service. Please try again.", true)
       }
     } finally {
       if (activeRequestRef.current?.assistantId === assistantId) {
@@ -284,11 +273,12 @@ export default function AIAssistantUI() {
   const selected = conversations.find((c) => c.id === selectedId) || null
 
   return (
-    <div className="h-screen w-full bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+    <div className="h-screen w-full bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="flex h-[calc(100vh-0px)] w-full">
         <Sidebar
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
+          onOpen={() => setSidebarOpen(true)}
           collapsed={collapsed}
           setCollapsed={setCollapsed}
           sidebarCollapsed={sidebarCollapsed}
@@ -305,7 +295,8 @@ export default function AIAssistantUI() {
           createNewChat={createNewChat}
         />
 
-        <main className="relative flex min-w-0 flex-1 flex-col">
+        {/* Main content - add left padding on mobile for collapsed sidebar */}
+        <main className="relative flex min-w-0 flex-1 flex-col pl-16 md:pl-0">
           <ChatPane
             conversation={selected}
             onSend={(content) => selected && sendMessage(selected.id, content)}
