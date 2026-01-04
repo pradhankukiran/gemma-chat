@@ -8,6 +8,7 @@ export default function AIAssistantUI() {
   const apiBase = process.env.NEXT_PUBLIC_MODAL_API_BASE || "https://pradhankukiran--medgemma-modal-api-fastapi-app.modal.run"
   const generationDefaults = { max_new_tokens: 512, temperature: 0.7, top_p: 0.95 }
   const activeRequestRef = useRef(null)
+  const warmupRef = useRef(false)
   const defaultCollapsed = { pinned: true, recent: false }
   const [prefsLoaded, setPrefsLoaded] = useState(false)
 
@@ -74,6 +75,33 @@ export default function AIAssistantUI() {
     } catch {}
     setPrefsLoaded(true)
   }, [])
+
+  useEffect(() => {
+    if (warmupRef.current) return
+    warmupRef.current = true
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 12000)
+    const payload = {
+      messages: [{ role: "user", content: "warmup" }],
+      max_new_tokens: 1,
+      temperature: 0,
+      top_p: 1,
+      system_prompt: "",
+    }
+    fetch(`${apiBase}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    })
+      .catch(() => {})
+      .finally(() => clearTimeout(timeout))
+
+    return () => {
+      clearTimeout(timeout)
+      controller.abort()
+    }
+  }, [apiBase])
 
   const [conversations, setConversations] = useState([])
   const [selectedId, setSelectedId] = useState(null)
@@ -210,16 +238,21 @@ export default function AIAssistantUI() {
           buffer = buffer.slice(boundary + 2)
 
           const lines = chunk.split("\n")
+          const dataLines = []
           for (const line of lines) {
             if (!line.startsWith("data:")) continue
-            const data = line.replace(/^data:\s?/, "")
-            if (!data) continue
-            if (data.trim() === "[DONE]") {
+            dataLines.push(line.replace(/^data:\s?/, ""))
+          }
+          if (dataLines.length) {
+            const data = dataLines.join("\n")
+            if (dataLines.length === 1 && data.trim() === "[DONE]") {
               updateAssistant(fullText, true)
               return
             }
-            fullText += data
-            updateAssistant(fullText, false)
+            if (data) {
+              fullText += data
+              updateAssistant(fullText, false)
+            }
           }
 
           boundary = buffer.indexOf("\n\n")

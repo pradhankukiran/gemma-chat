@@ -3,7 +3,7 @@
 import { useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { AlertTriangle, ChevronDown, ChevronRight, Copy, Check, ExternalLink } from "lucide-react"
+import { ChevronDown, ChevronRight, Copy, Check, ExternalLink } from "lucide-react"
 import CopyButton from "./CopyButton"
 import { cls } from "./utils"
 
@@ -28,36 +28,6 @@ const PATTERNS = {
   temperature: /\b(\d{2,3}(?:\.\d)?)\s*°?[CF]\b/gi,
 }
 
-// Clinical alert keywords
-const ALERT_KEYWORDS = [
-  "contraindicated",
-  "black box warning",
-  "life-threatening",
-  "fatal",
-  "anaphylaxis",
-  "discontinue immediately",
-  "do not use",
-  "absolute contraindication",
-  "severe reaction",
-  "emergency",
-  "stat",
-  "urgent",
-  "critical",
-]
-
-const WARNING_KEYWORDS = [
-  "caution",
-  "warning",
-  "monitor",
-  "risk of",
-  "may cause",
-  "adverse",
-  "side effect",
-  "interaction",
-  "relative contraindication",
-  "use with caution",
-  "carefully",
-]
 
 // Component for inline clinical values with copy
 function ClinicalValue({ children, type }) {
@@ -128,36 +98,6 @@ function CollapsibleSection({ title, children, defaultOpen = true, priority }) {
   )
 }
 
-// Alert box component
-function AlertBox({ type, children }) {
-  const styles = {
-    critical: {
-      container: "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-900/20",
-      icon: "text-red-600 dark:text-red-400",
-      text: "text-red-800 dark:text-red-200",
-      title: "Critical Alert",
-    },
-    warning: {
-      container: "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20",
-      icon: "text-amber-600 dark:text-amber-400",
-      text: "text-amber-800 dark:text-amber-200",
-      title: "Warning",
-    },
-  }
-
-  const style = styles[type] || styles.warning
-
-  return (
-    <div className={cls("my-3 flex gap-3 rounded-lg border p-3", style.container)}>
-      <AlertTriangle className={cls("h-5 w-5 shrink-0", style.icon)} />
-      <div className={style.text}>
-        <div className="mb-1 font-semibold">{style.title}</div>
-        {children}
-      </div>
-    </div>
-  )
-}
-
 // Enhanced code block with copy button
 function CodeBlock({ children, className }) {
   const codeString = typeof children === "string" ? children : String(children?.props?.children || "")
@@ -196,18 +136,6 @@ function processText(text) {
 export default function ClinicalMarkdown({ content }) {
   const components = {
     p: ({ children, node }) => {
-      const textContent = typeof children === "string" ? children : ""
-      const lowerText = textContent.toLowerCase()
-      const hasAlert = ALERT_KEYWORDS.some((kw) => lowerText.includes(kw))
-      const hasWarning = !hasAlert && WARNING_KEYWORDS.some((kw) => lowerText.includes(kw))
-
-      if (hasAlert) {
-        return <AlertBox type="critical">{children}</AlertBox>
-      }
-      if (hasWarning) {
-        return <AlertBox type="warning">{children}</AlertBox>
-      }
-
       return (
         <p className="mb-3 text-sm leading-relaxed text-slate-700 last:mb-0 dark:text-slate-200">
           {children}
@@ -379,4 +307,4 @@ export default function ClinicalMarkdown({ content }) {
 }
 
 // Export sub-components for use elsewhere
-export { ClinicalValue, CollapsibleSection, AlertBox, CopyButton }
+export { ClinicalValue, CollapsibleSection, CopyButton }
