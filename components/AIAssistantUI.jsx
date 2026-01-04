@@ -163,10 +163,36 @@ export default function AIAssistantUI() {
   }
 
 
-  async function sendMessage(convId, content) {
+  async function uploadImages(files) {
+    const formData = new FormData()
+    files.forEach((file) => formData.append("files", file))
+    const res = await fetch("/api/blob", { method: "POST", body: formData })
+    if (!res.ok) {
+      throw new Error(`Image upload failed: ${res.status}`)
+    }
+    const data = await res.json()
+    const urls = Array.isArray(data?.files) ? data.files.map((file) => file.url).filter(Boolean) : []
+    if (!urls.length) {
+      throw new Error("No image URLs returned from upload")
+    }
+    return urls
+  }
+
+  async function sendMessage(convId, content, files = []) {
     if (!content.trim()) return
     const now = new Date().toISOString()
-    const userMsg = { id: Math.random().toString(36).slice(2), role: "user", content, createdAt: now }
+    const userId = Math.random().toString(36).slice(2)
+    const localPreviews = Array.isArray(files) && files.length
+      ? files.map((file) => URL.createObjectURL(file))
+      : []
+    const userMsg = {
+      id: userId,
+      role: "user",
+      content,
+      createdAt: now,
+      images: localPreviews,
+      imagesUploading: localPreviews.length > 0,
+    }
     const assistantId = Math.random().toString(36).slice(2)
     const assistantMsg = { id: assistantId, role: "assistant", content: "", createdAt: now }
     const conv = conversations.find((c) => c.id === convId)
@@ -208,12 +234,45 @@ export default function AIAssistantUI() {
       )
     }
 
+    let imageUrls = []
+    if (Array.isArray(files) && files.length > 0) {
+      try {
+        imageUrls = await uploadImages(files)
+        setConversations((prev) =>
+          prev.map((c) => {
+            if (c.id !== convId) return c
+            const msgs = (c.messages || []).map((m) =>
+              m.id === userId ? { ...m, imagesUploading: false } : m
+            )
+            return { ...c, messages: msgs }
+          }),
+        )
+      } catch (err) {
+        updateAssistant("Unable to upload images. Please try again.", true)
+        setConversations((prev) =>
+          prev.map((c) => {
+            if (c.id !== convId) return c
+            const msgs = (c.messages || []).map((m) =>
+              m.id === userId ? { ...m, imagesUploading: false } : m
+            )
+            return { ...c, messages: msgs }
+          }),
+        )
+        if (activeRequestRef.current?.assistantId === assistantId) {
+          activeRequestRef.current = null
+        }
+        return
+      }
+    }
+
     const payload = { messages: history, ...generationDefaults }
+    const endpoint = imageUrls.length ? "chat_image_stream" : "chat_stream"
+    if (imageUrls.length) payload.image_urls = imageUrls
 
     let fullText = ""
 
     try {
-      const res = await fetch(`${apiBase}/chat_stream`, {
+      const res = await fetch(`${apiBase}/${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -332,7 +391,7 @@ export default function AIAssistantUI() {
         <main className="relative flex min-w-0 flex-1 flex-col pl-16 md:pl-0">
           <ChatPane
             conversation={selected}
-            onSend={(content) => selected && sendMessage(selected.id, content)}
+            onSend={(content, files) => selected && sendMessage(selected.id, content, files)}
             onEditMessage={(messageId, newContent) => selected && editMessage(selected.id, messageId, newContent)}
             onResendMessage={(messageId) => selected && resendMessage(selected.id, messageId)}
           />

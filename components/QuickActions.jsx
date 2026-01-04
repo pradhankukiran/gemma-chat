@@ -11,6 +11,7 @@ import {
   Brain,
   Syringe,
   FileText,
+  ClipboardList,
   ChevronDown,
   ChevronUp,
 } from "lucide-react"
@@ -54,6 +55,15 @@ const QUICK_ACTIONS = [
     template: "Interpret these lab results:\n\n• Test: Value (units)\n• Test: Value (units)\n• Clinical context: \n\nProvide interpretation, likely causes, and recommended follow-up.",
   },
   {
+    id: "imaging",
+    label: "Imaging Choice",
+    icon: FileText,
+    color: "text-cyan-600 dark:text-cyan-400",
+    bg: "bg-cyan-50 dark:bg-cyan-900/20",
+    border: "border-cyan-200 dark:border-cyan-800",
+    template: "Imaging decision support for:\n\n• Symptom/concern: \n• Exam findings: \n• Red flags: \n• Pregnancy/renal status: \n\nRecommend modality, urgency, and key views.",
+  },
+  {
     id: "contraindications",
     label: "Contraindications",
     icon: AlertTriangle,
@@ -61,6 +71,15 @@ const QUICK_ACTIONS = [
     bg: "bg-red-50 dark:bg-red-900/20",
     border: "border-red-200 dark:border-red-800",
     template: "List contraindications for:\n\n• Medication/Procedure: \n• Patient conditions: \n\nInclude absolute vs relative contraindications and alternatives.",
+  },
+  {
+    id: "discharge",
+    label: "Discharge Plan",
+    icon: ClipboardList,
+    color: "text-slate-600 dark:text-slate-300",
+    bg: "bg-slate-50 dark:bg-slate-800/40",
+    border: "border-slate-200 dark:border-slate-700",
+    template: "Discharge plan for:\n\n• Diagnosis: \n• Key treatments given: \n• Vitals/status at discharge: \n\nProvide red flags, follow-up timeline, and home care instructions.",
   },
   {
     id: "pediatric",

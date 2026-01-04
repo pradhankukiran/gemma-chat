@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useState, useEffect } from "react"
-import { Send, Loader2, Sparkles, Mic, MicOff } from "lucide-react"
+import { Send, Loader2, Sparkles, ImagePlus, X } from "lucide-react"
 import { cls } from "./utils"
 
 export default function Composer({ onSend, busy, value: controlledValue, onChange: onControlledChange }) {
@@ -14,6 +14,9 @@ export default function Composer({ onSend, busy, value: controlledValue, onChang
   const [lineCount, setLineCount] = useState(1)
   const [isFocused, setIsFocused] = useState(false)
   const inputRef = useRef(null)
+  const fileInputRef = useRef(null)
+  const [attachments, setAttachments] = useState([])
+  const attachmentsRef = useRef([])
 
   // Auto-resize textarea
   useEffect(() => {
@@ -47,13 +50,28 @@ export default function Composer({ onSend, busy, value: controlledValue, onChang
     }
   }, [controlledValue])
 
+  useEffect(() => {
+    attachmentsRef.current = attachments
+  }, [attachments])
+
+  useEffect(() => {
+    return () => {
+      attachmentsRef.current.forEach((item) => URL.revokeObjectURL(item.preview))
+    }
+  }, [])
+
   async function handleSend() {
     if (!value.trim() || sending) return
     const nextValue = value
+    const nextFiles = attachments.map((item) => item.file)
     setSending(true)
     setValue("")
+    setAttachments((prev) => {
+      prev.forEach((item) => URL.revokeObjectURL(item.preview))
+      return []
+    })
     try {
-      await onSend?.(nextValue)
+      await onSend?.(nextValue, nextFiles)
       inputRef.current?.focus()
     } finally {
       setSending(false)
@@ -76,6 +94,35 @@ export default function Composer({ onSend, busy, value: controlledValue, onChang
         >
           {/* Textarea area */}
           <div className="flex-1 px-4 pt-4 pb-2">
+            {attachments.length > 0 && (
+              <div className="mb-3 flex flex-wrap gap-2">
+                {attachments.map((item) => (
+                  <div
+                    key={item.id}
+                    className="group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    <img
+                      src={item.preview}
+                      alt={item.file.name || "attachment"}
+                      className="h-20 w-20 object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAttachments((prev) => {
+                          const next = prev.filter((entry) => entry.id !== item.id)
+                          URL.revokeObjectURL(item.preview)
+                          return next
+                        })
+                      }}
+                      className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-slate-600 shadow-sm transition hover:bg-white dark:bg-slate-800 dark:text-slate-200"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <textarea
               ref={inputRef}
               value={value}
@@ -101,10 +148,34 @@ export default function Composer({ onSend, busy, value: controlledValue, onChang
           <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2 dark:border-slate-700">
             {/* Helper text & keyboard hint */}
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
-                <Sparkles className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">AI-powered clinical insights</span>
-              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || [])
+                  if (!files.length) return
+                  setAttachments((prev) => [
+                    ...prev,
+                    ...files.map((file) => ({
+                      id: `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
+                      file,
+                      preview: URL.createObjectURL(file),
+                    })),
+                  ])
+                  e.target.value = ""
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                <ImagePlus className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Add images</span>
+              </button>
               {hasContent && (
                 <div className="hidden items-center gap-1 text-[10px] text-slate-400 sm:flex">
                   <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] dark:bg-slate-700">
@@ -159,10 +230,6 @@ export default function Composer({ onSend, busy, value: controlledValue, onChang
           </div>
         </div>
 
-        {/* Footer disclaimer */}
-        <div className="mt-2 text-center text-[11px] text-slate-400 dark:text-slate-500">
-          AI can make mistakes. Verify important information.
-        </div>
       </div>
     </div>
   )

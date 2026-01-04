@@ -1,25 +1,20 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Pencil, RefreshCw, Check, X, Clock, AlertCircle } from "lucide-react"
+import { Pencil, RefreshCw, Check, X, AlertCircle, Loader2 } from "lucide-react"
 import Message from "./Message"
 import Composer from "./Composer"
 import QuickActions from "./QuickActions"
 import ClinicalMarkdown from "./ClinicalMarkdown"
-import { cls, timeAgo } from "./utils"
+import { cls } from "./utils"
 
 export default function ChatPane({ conversation, onSend, onEditMessage, onResendMessage }) {
   const [editingId, setEditingId] = useState(null)
   const [draft, setDraft] = useState("")
   const [busy, setBusy] = useState(false)
-  const [mounted, setMounted] = useState(false)
   const [quickActionsExpanded, setQuickActionsExpanded] = useState(true)
   const [composerValue, setComposerValue] = useState("")
   const messagesEndRef = useRef(null)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -31,8 +26,6 @@ export default function ChatPane({ conversation, onSend, onEditMessage, onResend
   if (!conversation) return null
 
   const messages = Array.isArray(conversation.messages) ? conversation.messages : []
-  const count = messages.length || conversation.messageCount || 0
-
   function startEdit(m) {
     setEditingId(m.id)
     setDraft(m.content)
@@ -57,40 +50,16 @@ export default function ChatPane({ conversation, onSend, onEditMessage, onResend
     setComposerValue(template)
   }
 
-  const handleSend = async (text) => {
+  const handleSend = async (text, files = []) => {
     if (!text.trim()) return
     setBusy(true)
     setComposerValue("")
-    await onSend?.(text)
+    await onSend?.(text, files)
     setBusy(false)
   }
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-slate-950">
-      {/* Session Header */}
-      <div className="border-b border-slate-200/80 bg-white/80 px-6 py-4 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/80">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-slate-900 dark:text-white">
-              {conversation.title}
-            </h1>
-            <div className="mt-1 flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-              <span className="flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5" />
-                {mounted ? timeAgo(conversation.updatedAt) : "recently"}
-              </span>
-              <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" />
-              <span>{count} {count === 1 ? "message" : "messages"}</span>
-            </div>
-          </div>
-          {/* Session indicator */}
-          <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Active Session
-          </div>
-        </div>
-      </div>
-
       {/* Quick Actions - Show only when no messages or collapsed */}
       {messages.length === 0 && (
         <QuickActions
@@ -121,6 +90,10 @@ export default function ChatPane({ conversation, onSend, onEditMessage, onResend
                   "55M with acute chest pain radiating to left arm, diaphoretic",
                   "Drug interaction check: Warfarin + Amiodarone",
                   "Pediatric dosing for amoxicillin, 8yo, 25kg, otitis media",
+                  "New-onset headache with neck stiffness, 27F, febrile",
+                  "Antibiotic choice for CAP, penicillin allergy, outpatient",
+                  "COPD exacerbation: initial management and discharge criteria",
+                  "Stroke LKW 2 hours, BP 190/100, NIHSS 8",
                 ].map((example, i) => (
                   <button
                     key={i}
@@ -183,7 +156,30 @@ export default function ChatPane({ conversation, onSend, onEditMessage, onResend
                           {m.role === "assistant" ? (
                             <ClinicalMarkdown content={m.content} />
                           ) : (
-                            <p className="whitespace-pre-wrap">{m.content}</p>
+                            <>
+                              {Array.isArray(m.images) && m.images.length > 0 && (
+                                <div className="mb-2 grid gap-2 sm:grid-cols-2">
+                                  {m.images.map((url, idx) => (
+                                    <div key={`${url}-${idx}`} className="relative">
+                                      <img
+                                        src={url}
+                                        alt="attachment"
+                                        className="h-32 w-full rounded-lg border border-white/10 object-cover"
+                                      />
+                                      {m.imagesUploading && (
+                                        <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/35 text-[11px] font-medium text-white">
+                                          <div className="flex items-center gap-2">
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                            <span>Uploading…</span>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              <p className="whitespace-pre-wrap">{m.content}</p>
+                            </>
                           )}
                         </div>
                       )}
@@ -210,14 +206,6 @@ export default function ChatPane({ conversation, onSend, onEditMessage, onResend
               <div ref={messagesEndRef} />
             </>
           )}
-        </div>
-      </div>
-
-      {/* Disclaimer Banner */}
-      <div className="border-t border-amber-200/50 bg-amber-50/50 px-4 py-2 dark:border-amber-900/30 dark:bg-amber-900/10">
-        <div className="mx-auto flex max-w-3xl items-center justify-center gap-2 text-xs text-amber-700 dark:text-amber-400">
-          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          <span>For clinical decision support only. Always verify with authoritative sources.</span>
         </div>
       </div>
 
