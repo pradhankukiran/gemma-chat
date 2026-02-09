@@ -1,69 +1,118 @@
 "use client"
 
-import React, { useEffect, useMemo, useRef, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Sidebar from "./Sidebar"
 import ChatPane from "./ChatPane"
+import ReferencePanel from "./ReferencePanel"
+import { searchDrugLabels, searchAdverseEvents, searchPubMed, searchICD11, searchRxNorm } from "../lib/medical-apis"
+
+const GENERATION_DEFAULTS = { max_new_tokens: 512, temperature: 0.7, top_p: 0.95 }
+const DEFAULT_COLLAPSED = { pinned: true, recent: false }
+const STORAGE_KEY_CONVERSATIONS = "medgemma-conversations"
+const STORAGE_KEY_SELECTED = "medgemma-selectedId"
+const SAVE_DEBOUNCE_MS = 400
 
 export default function AIAssistantUI() {
   const apiBase = process.env.NEXT_PUBLIC_MODAL_API_BASE || "https://pradhankukiran--medgemma-modal-api-fastapi-app.modal.run"
-  const generationDefaults = { max_new_tokens: 512, temperature: 0.7, top_p: 0.95 }
   const activeRequestRef = useRef(null)
   const warmupRef = useRef(false)
-  const defaultCollapsed = { pinned: true, recent: false }
+  const saveTimerRef = useRef(null)
+  const streamingRef = useRef(false)
   const [prefsLoaded, setPrefsLoaded] = useState(false)
 
-  const [theme, setTheme] = useState("light")
-
-  useEffect(() => {
-    try {
-      if (theme === "dark") document.documentElement.classList.add("dark")
-      else document.documentElement.classList.remove("dark")
-      document.documentElement.setAttribute("data-theme", theme)
-      document.documentElement.style.colorScheme = theme
-      if (prefsLoaded) localStorage.setItem("theme", theme)
-    } catch {}
-  }, [theme, prefsLoaded])
-
-  useEffect(() => {
-    try {
-      const savedTheme = localStorage.getItem("theme")
-      if (savedTheme) {
-        setTheme(savedTheme)
-      } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-        setTheme("dark")
+  const saveConversations = useCallback((convs, selId) => {
+    clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => {
+      try {
+        const cleaned = convs.map((c) => ({
+          ...c,
+          messages: (c.messages || []).map(({ imagesUploading, ...rest }) => rest),
+        }))
+        localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(cleaned))
+        localStorage.setItem(STORAGE_KEY_SELECTED, selId || "")
+      } catch (e) {
+        if (e?.name === "QuotaExceededError") {
+          console.warn("localStorage quota exceeded. Conversations may not be fully saved.")
+        } else {
+          console.warn("Failed to persist conversations:", e)
+        }
       }
-    } catch {}
-  }, [])
-
-  useEffect(() => {
-    try {
-      const media = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)")
-      if (!media) return
-      const listener = (e) => {
-        const saved = localStorage.getItem("theme")
-        if (!saved) setTheme(e.matches ? "dark" : "light")
-      }
-      media.addEventListener("change", listener)
-      return () => media.removeEventListener("change", listener)
-    } catch {}
+    }, SAVE_DEBOUNCE_MS)
   }, [])
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState(defaultCollapsed)
+  const [collapsed, setCollapsed] = useState(DEFAULT_COLLAPSED)
   useEffect(() => {
     if (!prefsLoaded) return
     try {
       localStorage.setItem("sidebar-collapsed", JSON.stringify(collapsed))
-    } catch {}
+    } catch (e) {
+      console.warn("Failed to persist sidebar collapsed state:", e)
+    }
   }, [collapsed, prefsLoaded])
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  const [referencePanel, setReferencePanel] = useState({
+    open: false,
+    activeTab: "drug",
+    data: {},
+    query: "",
+  })
+
+  const handleReferenceSearch = useCallback(async (type, query) => {
+    if (!query?.trim()) return
+
+    const tabMap = { drug: "drug", evidence: "evidence", icd: "icd", adverse: "adverse" }
+    const tab = tabMap[type] || "drug"
+
+    setReferencePanel((prev) => ({
+      ...prev,
+      open: true,
+      activeTab: tab,
+      query: query.trim(),
+      data: { ...prev.data, [tab]: { loading: true, results: null, error: null } },
+    }))
+
+    try {
+      let result
+      if (type === "drug") {
+        const [labels, rxnorm] = await Promise.all([
+          searchDrugLabels(query),
+          searchRxNorm(query),
+        ])
+        if (labels.error && rxnorm.error) {
+          result = { error: labels.error }
+        } else {
+          result = { results: labels.results || [], rxNorm: rxnorm }
+        }
+      } else if (type === "evidence") {
+        result = await searchPubMed(query)
+      } else if (type === "icd") {
+        result = await searchICD11(query)
+      } else if (type === "adverse") {
+        result = await searchAdverseEvents(query)
+      }
+
+      setReferencePanel((prev) => ({
+        ...prev,
+        data: { ...prev.data, [tab]: { ...result, loading: false } },
+      }))
+    } catch (err) {
+      setReferencePanel((prev) => ({
+        ...prev,
+        data: { ...prev.data, [tab]: { error: err.message, loading: false } },
+      }))
+    }
+  }, [])
 
   useEffect(() => {
     if (!prefsLoaded) return
     try {
       localStorage.setItem("sidebar-collapsed-state", JSON.stringify(sidebarCollapsed))
-    } catch {}
+    } catch (e) {
+      console.warn("Failed to persist sidebar collapsed state:", e)
+    }
   }, [sidebarCollapsed, prefsLoaded])
 
   useEffect(() => {
@@ -72,7 +121,37 @@ export default function AIAssistantUI() {
       if (rawCollapsed) setCollapsed(JSON.parse(rawCollapsed))
       const rawSidebar = localStorage.getItem("sidebar-collapsed-state")
       if (rawSidebar) setSidebarCollapsed(JSON.parse(rawSidebar))
-    } catch {}
+    } catch (e) {
+      console.warn("Failed to load sidebar preferences:", e)
+    }
+
+    // Load persisted conversations
+    let loadedConversations = []
+    let loadedSelectedId = null
+    try {
+      const rawConvs = localStorage.getItem(STORAGE_KEY_CONVERSATIONS)
+      if (rawConvs) {
+        const parsed = JSON.parse(rawConvs)
+        if (Array.isArray(parsed)) {
+          loadedConversations = parsed.map((c) => ({
+            ...c,
+            messages: (c.messages || []).map(({ imagesUploading, ...rest }) => rest),
+          }))
+        }
+      }
+      const rawSel = localStorage.getItem(STORAGE_KEY_SELECTED)
+      if (rawSel) loadedSelectedId = rawSel
+    } catch (e) {
+      console.warn("Failed to load conversations:", e)
+    }
+
+    if (loadedConversations.length > 0) {
+      setConversations(loadedConversations)
+      conversationsRef.current = loadedConversations
+      const valid = loadedConversations.some((c) => c.id === loadedSelectedId)
+      setSelectedId(valid ? loadedSelectedId : loadedConversations[0].id)
+    }
+
     setPrefsLoaded(true)
   }, [])
 
@@ -94,7 +173,7 @@ export default function AIAssistantUI() {
       body: JSON.stringify(payload),
       signal: controller.signal,
     })
-      .catch(() => {})
+      .catch((e) => { if (e?.name !== "AbortError") console.warn("Warmup request failed:", e) })
       .finally(() => clearTimeout(timeout))
 
     return () => {
@@ -103,8 +182,26 @@ export default function AIAssistantUI() {
     }
   }, [apiBase])
 
+  useEffect(() => {
+    return () => {
+      activeRequestRef.current?.controller?.abort()
+      clearTimeout(saveTimerRef.current)
+    }
+  }, [])
+
   const [conversations, setConversations] = useState([])
+  const conversationsRef = useRef(conversations)
+  useEffect(() => {
+    conversationsRef.current = conversations
+  }, [conversations])
+
   const [selectedId, setSelectedId] = useState(null)
+
+  useEffect(() => {
+    if (!prefsLoaded) return
+    if (streamingRef.current) return
+    saveConversations(conversations, selectedId)
+  }, [conversations, selectedId, prefsLoaded, saveConversations])
 
   const [query, setQuery] = useState("")
   const searchRef = useRef(null)
@@ -132,7 +229,7 @@ export default function AIAssistantUI() {
   const filtered = useMemo(() => {
     if (!query.trim()) return conversations
     const q = query.toLowerCase()
-    return conversations.filter((c) => c.title.toLowerCase().includes(q) || c.preview.toLowerCase().includes(q))
+    return conversations.filter((c) => c.title.toLowerCase().includes(q) || (c.preview || "").toLowerCase().includes(q))
   }, [conversations, query])
 
   const pinned = filtered.filter((c) => c.pinned).sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
@@ -146,8 +243,22 @@ export default function AIAssistantUI() {
     setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, pinned: !c.pinned } : c)))
   }
 
+  function deleteConversation(id) {
+    setConversations((prev) => prev.filter((c) => c.id !== id))
+    if (selectedId === id) {
+      const remaining = conversationsRef.current.filter((c) => c.id !== id)
+      setSelectedId(remaining.length > 0 ? remaining[0].id : null)
+    }
+  }
+
+  function renameConversation(id, newTitle) {
+    setConversations((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, title: newTitle } : c))
+    )
+  }
+
   function createNewChat() {
-    const id = Math.random().toString(36).slice(2)
+    const id = crypto.randomUUID()
     const item = {
       id,
       title: "New Clinical Session",
@@ -181,7 +292,7 @@ export default function AIAssistantUI() {
   async function sendMessage(convId, content, files = []) {
     if (!content.trim()) return
     const now = new Date().toISOString()
-    const userId = Math.random().toString(36).slice(2)
+    const userId = crypto.randomUUID()
     const localPreviews = Array.isArray(files) && files.length
       ? files.map((file) => URL.createObjectURL(file))
       : []
@@ -193,9 +304,9 @@ export default function AIAssistantUI() {
       images: localPreviews,
       imagesUploading: localPreviews.length > 0,
     }
-    const assistantId = Math.random().toString(36).slice(2)
+    const assistantId = crypto.randomUUID()
     const assistantMsg = { id: assistantId, role: "assistant", content: "", createdAt: now }
-    const conv = conversations.find((c) => c.id === convId)
+    const conv = conversationsRef.current.find((c) => c.id === convId)
     const history = [...(conv?.messages || []), userMsg].map((m) => ({ role: m.role, content: m.content }))
 
     setConversations((prev) =>
@@ -238,16 +349,18 @@ export default function AIAssistantUI() {
     if (Array.isArray(files) && files.length > 0) {
       try {
         imageUrls = await uploadImages(files)
+        localPreviews.forEach((url) => URL.revokeObjectURL(url))
         setConversations((prev) =>
           prev.map((c) => {
             if (c.id !== convId) return c
             const msgs = (c.messages || []).map((m) =>
-              m.id === userId ? { ...m, imagesUploading: false } : m
+              m.id === userId ? { ...m, imagesUploading: false, images: imageUrls } : m
             )
             return { ...c, messages: msgs }
           }),
         )
       } catch (err) {
+        localPreviews.forEach((url) => URL.revokeObjectURL(url))
         updateAssistant("Unable to upload images. Please try again.", true)
         setConversations((prev) =>
           prev.map((c) => {
@@ -265,11 +378,12 @@ export default function AIAssistantUI() {
       }
     }
 
-    const payload = { messages: history, ...generationDefaults }
+    const payload = { messages: history, ...GENERATION_DEFAULTS }
     const endpoint = imageUrls.length ? "chat_image_stream" : "chat_stream"
     if (imageUrls.length) payload.image_urls = imageUrls
 
     let fullText = ""
+    streamingRef.current = true
 
     try {
       const res = await fetch(`${apiBase}/${endpoint}`, {
@@ -297,14 +411,10 @@ export default function AIAssistantUI() {
           buffer = buffer.slice(boundary + 2)
 
           const lines = chunk.split("\n")
-          const dataLines = []
           for (const line of lines) {
             if (!line.startsWith("data:")) continue
-            dataLines.push(line.replace(/^data:\s?/, ""))
-          }
-          if (dataLines.length) {
-            const data = dataLines.join("\n")
-            if (dataLines.length === 1 && data.trim() === "[DONE]") {
+            const data = line.replace(/^data:\s?/, "")
+            if (data.trim() === "[DONE]") {
               updateAssistant(fullText, true)
               return
             }
@@ -326,6 +436,7 @@ export default function AIAssistantUI() {
         updateAssistant("Unable to connect to the clinical AI service. Please try again.", true)
       }
     } finally {
+      streamingRef.current = false
       if (activeRequestRef.current?.assistantId === assistantId) {
         activeRequestRef.current = null
       }
@@ -349,24 +460,28 @@ export default function AIAssistantUI() {
     )
   }
 
-  function resendMessage(convId, messageId) {
-    const conv = conversations.find((c) => c.id === convId)
+  function resendMessage(convId, messageId, content) {
+    if (content !== undefined) {
+      sendMessage(convId, content)
+      return
+    }
+    const conv = conversationsRef.current.find((c) => c.id === convId)
     const msg = conv?.messages?.find((m) => m.id === messageId)
     if (!msg) return
     sendMessage(convId, msg.content)
   }
 
   useEffect(() => {
-    if (!selectedId) {
+    if (prefsLoaded && !selectedId && conversations.length === 0) {
       createNewChat()
     }
-  }, [])
+  }, [prefsLoaded])
 
   const selected = conversations.find((c) => c.id === selectedId) || null
 
   return (
-    <div className="h-screen w-full bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <div className="flex h-[calc(100vh-0px)] w-full">
+    <div className="flex h-screen w-full bg-surface-primary text-ink">
+      <div className="flex min-h-0 flex-1">
         <Sidebar
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
@@ -381,21 +496,28 @@ export default function AIAssistantUI() {
           selectedId={selectedId}
           onSelect={(id) => setSelectedId(id)}
           togglePin={togglePin}
+          onDeleteConversation={deleteConversation}
+          onRenameConversation={renameConversation}
           query={query}
           setQuery={setQuery}
           searchRef={searchRef}
           createNewChat={createNewChat}
         />
 
-        {/* Main content - add left padding on mobile for collapsed sidebar */}
-        <main className="relative flex min-w-0 flex-1 flex-col pl-16 md:pl-0">
+        <main className="relative flex min-w-0 flex-1 flex-col pl-14 md:pl-0">
           <ChatPane
             conversation={selected}
             onSend={(content, files) => selected && sendMessage(selected.id, content, files)}
             onEditMessage={(messageId, newContent) => selected && editMessage(selected.id, messageId, newContent)}
-            onResendMessage={(messageId) => selected && resendMessage(selected.id, messageId)}
+            onResendMessage={(messageId, content) => selected && resendMessage(selected.id, messageId, content)}
+            onReferenceSearch={handleReferenceSearch}
           />
         </main>
+
+        <ReferencePanel
+          referencePanel={referencePanel}
+          setReferencePanel={setReferencePanel}
+        />
       </div>
     </div>
   )

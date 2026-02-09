@@ -1,27 +1,35 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Check, Copy } from "lucide-react"
 import { cls } from "./utils"
 
 export default function CopyButton({ text, className, size = "sm" }) {
   const [copied, setCopied] = useState(false)
+  const timerRef = useRef(null)
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [])
 
   const handleCopy = async (e) => {
     e.stopPropagation()
     try {
       await navigator.clipboard.writeText(text)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      if (timerRef.current) clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => setCopied(false), 2000)
     } catch (err) {
       console.error("Failed to copy:", err)
     }
   }
 
   const sizeClasses = {
-    xs: "h-5 w-5 p-1",
-    sm: "h-6 w-6 p-1",
-    md: "h-7 w-7 p-1.5",
+    xs: "h-6 px-1.5",
+    sm: "h-7 px-2",
+    md: "h-8 px-2.5",
   }
 
   const iconSizes = {
@@ -34,20 +42,21 @@ export default function CopyButton({ text, className, size = "sm" }) {
     <button
       onClick={handleCopy}
       className={cls(
-        "inline-flex items-center justify-center rounded-md transition-all duration-150",
+        "inline-flex items-center gap-1 rounded-md text-[11px] transition-colors",
         copied
-          ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
-          : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200",
+          ? "text-emerald"
+          : "text-ink-faint hover:bg-surface-tertiary hover:text-ink-secondary",
         sizeClasses[size],
         className
       )}
-      title={copied ? "Copied!" : "Copy to clipboard"}
+      title={copied ? "Copied!" : "Copy"}
     >
       {copied ? (
         <Check className={iconSizes[size]} />
       ) : (
         <Copy className={iconSizes[size]} />
       )}
+      {size !== "xs" && <span>{copied ? "Copied" : "Copy"}</span>}
     </button>
   )
 }

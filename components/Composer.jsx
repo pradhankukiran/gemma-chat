@@ -1,51 +1,51 @@
 "use client"
 
 import { useRef, useState, useEffect } from "react"
-import { Send, Loader2, Sparkles, ImagePlus, X } from "lucide-react"
+import { ArrowUp, Loader2, ImagePlus, X, Pill, BookOpen, FileCode2, ShieldAlert } from "lucide-react"
 import { cls } from "./utils"
 
-export default function Composer({ onSend, busy, value: controlledValue, onChange: onControlledChange }) {
-  // Support both controlled and uncontrolled modes
+const MAX_CHARS = 4000
+
+const SLASH_COMMANDS = [
+  { command: "/drug", label: "Drug Lookup", description: "Search drug labels via openFDA + RxNorm", icon: Pill, type: "drug" },
+  { command: "/icd", label: "ICD-11 Lookup", description: "Search ICD-11 diagnosis codes", icon: FileCode2, type: "icd" },
+  { command: "/evidence", label: "PubMed Search", description: "Search PubMed for clinical evidence", icon: BookOpen, type: "evidence" },
+  { command: "/adverse", label: "Adverse Events", description: "Search FDA adverse event reports", icon: ShieldAlert, type: "adverse" },
+]
+
+export default function Composer({ onSend, busy, value: controlledValue, onChange: onControlledChange, onReferenceSearch }) {
   const [internalValue, setInternalValue] = useState("")
   const value = controlledValue !== undefined ? controlledValue : internalValue
   const setValue = onControlledChange || setInternalValue
 
   const [sending, setSending] = useState(false)
-  const [lineCount, setLineCount] = useState(1)
   const [isFocused, setIsFocused] = useState(false)
   const inputRef = useRef(null)
   const fileInputRef = useRef(null)
   const [attachments, setAttachments] = useState([])
   const attachmentsRef = useRef([])
 
-  // Auto-resize textarea
   useEffect(() => {
     if (inputRef.current) {
       const textarea = inputRef.current
       const lineHeight = 24
-      const minHeight = 24
-
       textarea.style.height = "auto"
       const scrollHeight = textarea.scrollHeight
-      const calculatedLines = Math.max(1, Math.ceil(scrollHeight / lineHeight))
+      const maxHeight = 12 * lineHeight
 
-      setLineCount(calculatedLines)
-
-      if (calculatedLines <= 12) {
-        textarea.style.height = `${Math.max(minHeight, scrollHeight)}px`
+      if (scrollHeight <= maxHeight) {
+        textarea.style.height = `${Math.max(lineHeight, scrollHeight)}px`
         textarea.style.overflowY = "hidden"
       } else {
-        textarea.style.height = `${12 * lineHeight}px`
+        textarea.style.height = `${maxHeight}px`
         textarea.style.overflowY = "auto"
       }
     }
   }, [value])
 
-  // Focus textarea when value is set externally (e.g., from quick action)
   useEffect(() => {
     if (controlledValue && controlledValue.length > 0 && inputRef.current) {
       inputRef.current.focus()
-      // Move cursor to end
       inputRef.current.setSelectionRange(controlledValue.length, controlledValue.length)
     }
   }, [controlledValue])
@@ -60,8 +60,45 @@ export default function Composer({ onSend, busy, value: controlledValue, onChang
     }
   }, [])
 
+  const [slashIndex, setSlashIndex] = useState(-1)
+  const slashMatch = value.match(/^\/(\S*)/)
+  const showSlash = slashMatch && onReferenceSearch
+  const slashFilter = slashMatch?.[1]?.toLowerCase() || ""
+  const filteredCommands = showSlash
+    ? SLASH_COMMANDS.filter((c) => c.command.slice(1).startsWith(slashFilter))
+    : []
+
+  useEffect(() => {
+    setSlashIndex(filteredCommands.length > 0 ? 0 : -1)
+  }, [slashFilter, filteredCommands.length])
+
+  function handleSlashCommand(cmd) {
+    const rest = value.replace(/^\/\S*\s*/, "").trim()
+    if (!rest) {
+      setValue(cmd.command + " ")
+      inputRef.current?.focus()
+      return
+    }
+    setValue("")
+    onReferenceSearch?.(cmd.type, rest)
+  }
+
   async function handleSend() {
     if (!value.trim() || sending) return
+
+    // Intercept slash commands
+    if (showSlash && onReferenceSearch) {
+      const matched = SLASH_COMMANDS.find((c) => value.startsWith(c.command + " ") || value === c.command)
+      if (matched) {
+        const query = value.slice(matched.command.length).trim()
+        if (query) {
+          setValue("")
+          onReferenceSearch(matched.type, query)
+          return
+        }
+      }
+    }
+
     const nextValue = value
     const nextFiles = attachments.map((item) => item.file)
     setSending(true)
@@ -79,75 +116,115 @@ export default function Composer({ onSend, busy, value: controlledValue, onChang
   }
 
   const hasContent = value.trim().length > 0
-  const isMultiline = lineCount > 1
+  const charRatio = Math.min(value.length / MAX_CHARS, 1)
 
   return (
-    <div className="border-t border-slate-200/80 bg-white px-4 py-4 dark:border-slate-800 dark:bg-slate-900">
-      <div className="mx-auto max-w-3xl">
+    <div className="border-t border-border-primary bg-surface-primary px-4 py-2">
+      <div className="mx-auto max-w-2xl">
         <div
           className={cls(
-            "relative flex flex-col rounded-xl border bg-white shadow-sm transition-all duration-200 dark:bg-slate-800",
+            "relative flex flex-col rounded-lg border transition-colors",
             isFocused
-              ? "border-[#1e3a5f] ring-2 ring-[#1e3a5f]/20 dark:border-blue-500 dark:ring-blue-500/20"
-              : "border-slate-200 dark:border-slate-700"
+              ? "border-border-focus bg-surface-primary"
+              : "border-border-primary bg-surface-secondary"
           )}
         >
-          {/* Textarea area */}
-          <div className="flex-1 px-4 pt-4 pb-2">
-            {attachments.length > 0 && (
-              <div className="mb-3 flex flex-wrap gap-2">
-                {attachments.map((item) => (
-                  <div
-                    key={item.id}
-                    className="group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900"
+          {/* Attachments */}
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-3 pt-3">
+              {attachments.map((item) => (
+                <div key={item.id} className="group relative">
+                  <img
+                    src={item.preview}
+                    alt={item.file.name || "attachment"}
+                    className="h-20 w-20 rounded-md object-cover ring-1 ring-border-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAttachments((prev) => {
+                        const next = prev.filter((entry) => entry.id !== item.id)
+                        URL.revokeObjectURL(item.preview)
+                        return next
+                      })
+                    }}
+                    className="absolute -right-1.5 -top-1.5 rounded-full bg-surface-primary p-0.5 text-ink-tertiary shadow-sm ring-1 ring-border-primary transition-colors hover:text-ink"
                   >
-                    <img
-                      src={item.preview}
-                      alt={item.file.name || "attachment"}
-                      className="h-20 w-20 object-cover"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAttachments((prev) => {
-                          const next = prev.filter((entry) => entry.id !== item.id)
-                          URL.revokeObjectURL(item.preview)
-                          return next
-                        })
-                      }}
-                      className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-slate-600 shadow-sm transition hover:bg-white dark:bg-slate-800 dark:text-slate-200"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <textarea
-              ref={inputRef}
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              placeholder="Describe the clinical scenario..."
-              rows={1}
-              className={cls(
-                "w-full resize-none bg-transparent text-sm outline-none transition-all duration-200",
-                "min-h-[24px] text-left leading-6 text-slate-900 placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
-              )}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault()
-                  handleSend()
-                }
-              }}
-            />
-          </div>
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
-          {/* Bottom toolbar */}
-          <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2 dark:border-slate-700">
-            {/* Helper text & keyboard hint */}
-            <div className="flex items-center gap-3">
+          {/* Slash command dropdown */}
+          {showSlash && filteredCommands.length > 0 && (
+            <div className="border-b border-border-secondary px-1.5 py-1.5">
+              {filteredCommands.map((cmd, i) => {
+                const Icon = cmd.icon
+                return (
+                  <button
+                    key={cmd.command}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      handleSlashCommand(cmd)
+                    }}
+                    className={cls(
+                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left transition-colors",
+                      i === slashIndex
+                        ? "bg-surface-tertiary text-ink"
+                        : "text-ink-secondary hover:bg-surface-tertiary"
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium">{cmd.command}</span>
+                      <span className="ml-1.5 text-xs text-ink-faint">{cmd.description}</span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Textarea */}
+          <textarea
+            ref={inputRef}
+            value={value}
+            onChange={(e) => { if (e.target.value.length <= MAX_CHARS) setValue(e.target.value) }}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            placeholder="Describe the clinical scenario... (or type / for commands)"
+            rows={1}
+            className="w-full resize-none bg-transparent px-3 pt-3 pb-2 text-sm leading-6 text-ink outline-none placeholder:text-ink-faint"
+            onKeyDown={(e) => {
+              if (showSlash && filteredCommands.length > 0) {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault()
+                  setSlashIndex((prev) => (prev + 1) % filteredCommands.length)
+                  return
+                }
+                if (e.key === "ArrowUp") {
+                  e.preventDefault()
+                  setSlashIndex((prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length)
+                  return
+                }
+                if (e.key === "Tab" && slashIndex >= 0) {
+                  e.preventDefault()
+                  handleSlashCommand(filteredCommands[slashIndex])
+                  return
+                }
+              }
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault()
+                handleSend()
+              }
+            }}
+          />
+
+          {/* Bottom bar */}
+          <div className="flex items-center justify-between px-3 pb-2">
+            <div className="flex items-center gap-1.5">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -171,35 +248,27 @@ export default function Composer({ onSend, busy, value: controlledValue, onChang
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs text-ink-tertiary transition-colors hover:bg-surface-tertiary hover:text-ink-secondary"
               >
                 <ImagePlus className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Add images</span>
+                <span className="hidden sm:inline">Image</span>
               </button>
+
               {hasContent && (
-                <div className="hidden items-center gap-1 text-[10px] text-slate-400 sm:flex">
-                  <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] dark:bg-slate-700">
-                    Enter
-                  </kbd>
-                  <span>to send</span>
-                  <span className="mx-1 text-slate-300 dark:text-slate-600">·</span>
-                  <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] dark:bg-slate-700">
-                    Shift+Enter
-                  </kbd>
-                  <span>for newline</span>
-                </div>
+                <span className="hidden text-[11px] text-ink-faint sm:inline">
+                  <kbd className="font-mono">Enter</kbd> to send
+                </span>
               )}
             </div>
 
-            {/* Actions */}
             <div className="flex items-center gap-2">
-              {/* Character count for long messages */}
-              {value.length > 500 && (
+              {/* Character counter */}
+              {value.length > 2000 && (
                 <span className={cls(
-                  "text-[10px] tabular-nums",
-                  value.length > 4000 ? "text-red-500" : "text-slate-400"
+                  "font-mono text-[11px]",
+                  charRatio > 0.9 ? "text-red" : "text-ink-faint"
                 )}>
-                  {value.length.toLocaleString()}
+                  {MAX_CHARS - value.length}
                 </span>
               )}
 
@@ -208,28 +277,25 @@ export default function Composer({ onSend, busy, value: controlledValue, onChang
                 onClick={handleSend}
                 disabled={sending || busy || !hasContent}
                 className={cls(
-                  "inline-flex shrink-0 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                  "inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors",
                   hasContent
-                    ? "bg-gradient-to-r from-[#1e3a5f] to-[#2d4a6f] text-white shadow-sm hover:from-[#2d4a6f] hover:to-[#3b6998] hover:shadow-md active:scale-[0.98]"
-                    : "bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-700 dark:text-slate-500"
+                    ? "bg-accent text-accent-fg hover:opacity-90"
+                    : "bg-surface-tertiary text-ink-faint cursor-not-allowed"
                 )}
               >
                 {sending || busy ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="hidden sm:inline">Analyzing</span>
-                  </>
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <>
-                    <Send className="h-4 w-4" />
-                    <span className="hidden sm:inline">Send</span>
-                  </>
+                  <ArrowUp className="h-4 w-4" />
                 )}
               </button>
             </div>
           </div>
         </div>
 
+        <p className="mt-1 text-center text-[11px] text-ink-faint">
+          AI-generated content for clinical reference only. Always verify with primary sources.
+        </p>
       </div>
     </div>
   )

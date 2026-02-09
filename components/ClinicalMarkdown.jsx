@@ -1,35 +1,21 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { ChevronDown, ChevronRight, Copy, Check, ExternalLink } from "lucide-react"
+import { ChevronDown, ChevronRight, Copy, Check, ExternalLink, Info } from "lucide-react"
 import CopyButton from "./CopyButton"
 import { cls } from "./utils"
 
-// Patterns for clinical values
 const PATTERNS = {
-  // Drug dosages: matches "500mg", "10 mg/kg", "0.5-1 mg", etc.
-  dosage: /\b(\d+(?:\.\d+)?(?:\s*[-–]\s*\d+(?:\.\d+)?)?)\s*(mg|g|mcg|µg|mL|L|units?|IU|mEq|mmol)(?:\/(?:kg|m²|dose|day|hr|min|L))?\b/gi,
-
-  // Lab values: matches "140 mEq/L", "7.4 pH", "98%", etc.
-  labValue: /\b(\d+(?:\.\d+)?)\s*(mEq\/L|mmol\/L|mg\/dL|g\/dL|%|mm\/hr|cells\/µL|ng\/mL|pg\/mL|mIU\/mL|U\/L|IU\/L|mmHg|bpm)\b/gi,
-
-  // eGFR/CrCl values
-  renalFunction: /\b(eGFR|CrCl|GFR)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(mL\/min(?:\/1\.73m²)?)?/gi,
-
-  // Blood pressure
-  bloodPressure: /\b(\d{2,3})\s*\/\s*(\d{2,3})\s*mmHg\b/gi,
-
-  // Heart rate
-  heartRate: /\b(\d{2,3})\s*bpm\b/gi,
-
-  // Temperature
-  temperature: /\b(\d{2,3}(?:\.\d)?)\s*°?[CF]\b/gi,
+  dosage: /\b(\d+(?:\.\d+)?(?:\s*[-–]\s*\d+(?:\.\d+)?)?)\s*(mg|g|mcg|µg|mL|L|units?|IU|mEq|mmol)(?:\/(?:kg|m²|dose|day|hr|min|L))?\b/i,
+  labValue: /\b(\d+(?:\.\d+)?)\s*(mEq\/L|mmol\/L|mg\/dL|g\/dL|%|mm\/hr|cells\/µL|ng\/mL|pg\/mL|mIU\/mL|U\/L|IU\/L|mmHg|bpm)\b/i,
+  renalFunction: /\b(eGFR|CrCl|GFR)\s*[=:]?\s*(\d+(?:\.\d+)?)\s*(mL\/min(?:\/1\.73m²)?)?/i,
+  bloodPressure: /\b(\d{2,3})\s*\/\s*(\d{2,3})\s*mmHg\b/i,
+  heartRate: /\b(\d{2,3})\s*bpm\b/i,
+  temperature: /\b(\d{2,3}(?:\.\d)?)\s*°?[CF]\b/i,
 }
 
-
-// Component for inline clinical values with copy
 function ClinicalValue({ children, type }) {
   const [copied, setCopied] = useState(false)
   const text = typeof children === "string" ? children : String(children)
@@ -45,131 +31,115 @@ function ClinicalValue({ children, type }) {
   }
 
   const typeStyles = {
-    dosage: "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800",
-    lab: "bg-purple-50 text-purple-800 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800",
-    vital: "bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800",
+    dosage: "bg-clinical-dosage-bg text-clinical-dosage-fg border-clinical-dosage-border",
+    lab: "bg-clinical-lab-bg text-clinical-lab-fg border-clinical-lab-border",
+    vital: "bg-clinical-vital-bg text-clinical-vital-fg border-clinical-vital-border",
   }
 
   return (
     <span
       onClick={handleCopy}
       className={cls(
-        "inline-flex cursor-pointer items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[0.85em] transition-all hover:shadow-sm",
+        "inline-flex cursor-pointer items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[0.85em] transition-all hover:opacity-80",
         typeStyles[type] || typeStyles.vital,
-        copied && "ring-2 ring-emerald-500/50"
+        copied && "ring-1 ring-emerald/50"
       )}
       title="Click to copy"
     >
       {text}
       {copied ? (
-        <Check className="h-3 w-3 text-emerald-500" />
+        <Check className="h-3 w-3 text-emerald" />
       ) : (
-        <Copy className="h-3 w-3 opacity-50" />
+        <Copy className="h-3 w-3 opacity-40" />
       )}
     </span>
   )
 }
 
-// Component for collapsible sections
 function CollapsibleSection({ title, children, defaultOpen = true, priority }) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
 
   const priorityStyles = {
-    high: "border-l-red-500 bg-red-50/50 dark:bg-red-900/10",
-    medium: "border-l-amber-500 bg-amber-50/50 dark:bg-amber-900/10",
-    normal: "border-l-[#1e3a5f] bg-slate-50/50 dark:bg-slate-800/30",
+    high: "border-l-red",
+    medium: "border-l-amber",
+    normal: "border-l-accent",
   }
 
   return (
-    <div className={cls("mb-3 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700", priority && "border-l-4", priorityStyles[priority])}>
+    <div className={cls("mb-3 overflow-hidden rounded-md border border-border-primary", priority && "border-l-2", priorityStyles[priority])}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-900 transition hover:bg-slate-50 dark:text-white dark:hover:bg-slate-800/50"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-ink transition-colors hover:bg-surface-tertiary"
       >
         {isOpen ? (
-          <ChevronDown className="h-4 w-4 text-slate-400" />
+          <ChevronDown className="h-3.5 w-3.5 text-ink-faint" />
         ) : (
-          <ChevronRight className="h-4 w-4 text-slate-400" />
+          <ChevronRight className="h-3.5 w-3.5 text-ink-faint" />
         )}
         {title}
       </button>
-      {isOpen && <div className="border-t border-slate-200 px-3 py-2 dark:border-slate-700">{children}</div>}
+      {isOpen && <div className="border-t border-border-primary px-3 py-2">{children}</div>}
     </div>
   )
 }
 
-// Enhanced code block with copy button
+function extractText(node) {
+  if (typeof node === "string") return node
+  if (typeof node === "number") return String(node)
+  if (!node) return ""
+  if (Array.isArray(node)) return node.map(extractText).join("")
+  if (node.props?.children) return extractText(node.props.children)
+  return ""
+}
+
 function CodeBlock({ children, className }) {
-  const codeString = typeof children === "string" ? children : String(children?.props?.children || "")
+  const codeString = typeof children === "string" ? children : extractText(children)
   const language = className?.replace("language-", "") || ""
 
   return (
     <div className="group relative mb-3">
-      <div className="absolute right-2 top-2 z-10 opacity-0 transition-opacity group-hover:opacity-100">
-        <CopyButton text={codeString} size="sm" />
-      </div>
-      {language && (
-        <div className="absolute left-3 top-2 text-[10px] font-medium uppercase tracking-wider text-slate-500">
-          {language}
+      <div className="flex items-center justify-between rounded-t-md border border-b-0 border-border-primary bg-surface-tertiary px-3 py-1.5">
+        {language && (
+          <span className="font-mono text-[10px] uppercase text-ink-faint">{language}</span>
+        )}
+        <div className="ml-auto opacity-0 transition-opacity group-hover:opacity-100">
+          <CopyButton text={codeString} size="xs" />
         </div>
-      )}
-      <pre className={cls("overflow-x-auto rounded-lg bg-[#0f1d2d] p-4 pt-8 text-xs leading-relaxed text-slate-100", language && "pt-8")}>
+      </div>
+      <pre className="overflow-x-auto rounded-b-md border border-border-primary bg-surface-sunken p-3 text-xs leading-relaxed text-ink">
         <code className="font-mono">{codeString}</code>
       </pre>
     </div>
   )
 }
 
-// Process text to add clinical value highlighting
-function processText(text) {
-  if (typeof text !== "string") return text
-
-  // Check for alert/warning keywords
-  const lowerText = text.toLowerCase()
-  const hasAlert = ALERT_KEYWORDS.some((kw) => lowerText.includes(kw))
-  const hasWarning = !hasAlert && WARNING_KEYWORDS.some((kw) => lowerText.includes(kw))
-
-  // For now, just return text - we'll handle this in the paragraph component
-  return { text, hasAlert, hasWarning }
-}
-
 export default function ClinicalMarkdown({ content }) {
-  const components = {
-    p: ({ children, node }) => {
-      return (
-        <p className="mb-3 text-sm leading-relaxed text-slate-700 last:mb-0 dark:text-slate-200">
-          {children}
-        </p>
-      )
-    },
+  const components = useMemo(() => ({
+    p: ({ children }) => (
+      <p className="mb-3 text-sm leading-relaxed text-ink last:mb-0">{children}</p>
+    ),
 
-    ul: ({ children }) => <ul className="mb-3 space-y-1.5 pl-1">{children}</ul>,
+    ul: ({ children }) => <ul className="mb-3 space-y-1 pl-1">{children}</ul>,
 
     ol: ({ children }) => (
-      <ol className="mb-3 list-decimal space-y-1.5 pl-5 marker:font-semibold marker:text-[#1e3a5f] dark:marker:text-slate-400">
+      <ol className="mb-3 list-decimal space-y-1 pl-5 marker:font-medium marker:text-ink-tertiary">
         {children}
       </ol>
     ),
 
-    li: ({ children, ordered, index }) => {
-      // Check if this looks like a priority item (starts with priority indicator)
+    li: ({ children }) => {
       const text = typeof children?.[0] === "string" ? children[0] : ""
-      const isPriority = /^(●|○|◐|►|▸|•|\*)\s/.test(text)
       const isHighPriority = text.includes("rule out") || text.includes("first") || text.includes("stat") || text.includes("urgent")
 
       return (
-        <li
-          className={cls(
-            "relative pl-4 text-sm leading-relaxed text-slate-700 dark:text-slate-200",
-            isHighPriority && "font-medium"
-          )}
-        >
-          <span
-            className={cls(
-              "absolute left-0 top-2 h-1.5 w-1.5 rounded-full",
-              isHighPriority ? "bg-red-500" : "bg-[#1e3a5f] dark:bg-slate-500"
-            )}
-          />
+        <li className={cls(
+          "relative pl-4 text-sm leading-relaxed text-ink",
+          isHighPriority && "font-medium"
+        )}>
+          <span className={cls(
+            "absolute left-0 top-[9px] h-1.5 w-1.5 rounded-full",
+            isHighPriority ? "bg-red" : "bg-ink-faint"
+          )} />
           {children}
         </li>
       )
@@ -177,7 +147,7 @@ export default function ClinicalMarkdown({ content }) {
 
     a: ({ href, children }) => (
       <a
-        className="inline-flex items-center gap-1 font-medium text-[#1e3a5f] underline underline-offset-2 hover:text-[#2d4a6f] dark:text-blue-400 dark:hover:text-blue-300"
+        className="inline-flex items-center gap-0.5 font-medium text-accent underline underline-offset-2 hover:opacity-80"
         href={href}
         target="_blank"
         rel="noopener noreferrer"
@@ -189,115 +159,81 @@ export default function ClinicalMarkdown({ content }) {
 
     strong: ({ children }) => {
       const text = typeof children === "string" ? children : String(children || "")
-
-      // Check if it's a dosage
-      if (PATTERNS.dosage.test(text)) {
-        PATTERNS.dosage.lastIndex = 0
-        return <ClinicalValue type="dosage">{text}</ClinicalValue>
-      }
-
-      // Check if it's a lab value
-      if (PATTERNS.labValue.test(text)) {
-        PATTERNS.labValue.lastIndex = 0
-        return <ClinicalValue type="lab">{text}</ClinicalValue>
-      }
-
-      return <strong className="font-semibold text-slate-900 dark:text-white">{children}</strong>
+      if (PATTERNS.dosage.test(text)) return <ClinicalValue type="dosage">{text}</ClinicalValue>
+      if (PATTERNS.labValue.test(text)) return <ClinicalValue type="lab">{text}</ClinicalValue>
+      return <strong className="font-semibold text-ink">{children}</strong>
     },
 
-    em: ({ children }) => <em className="italic text-slate-600 dark:text-slate-300">{children}</em>,
+    em: ({ children }) => <em className="italic text-ink-secondary">{children}</em>,
 
     blockquote: ({ children }) => (
-      <blockquote className="mb-3 rounded-r-md border-l-4 border-[#1e3a5f]/40 bg-slate-50 py-2 pl-4 pr-3 text-sm text-slate-600 dark:border-slate-500/40 dark:bg-slate-800/50 dark:text-slate-300">
-        {children}
+      <blockquote className="mb-3 flex gap-2 rounded-md border-l-2 border-accent/40 bg-surface-tertiary py-2 pl-3 pr-3 text-sm text-ink-secondary">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" />
+        <div>{children}</div>
       </blockquote>
     ),
 
     code: ({ inline, children, className }) => {
       if (inline) {
         const text = typeof children === "string" ? children : String(children || "")
-
-        // Check if it's a clinical value
-        if (PATTERNS.dosage.test(text)) {
-          PATTERNS.dosage.lastIndex = 0
-          return <ClinicalValue type="dosage">{text}</ClinicalValue>
-        }
-        if (PATTERNS.labValue.test(text) || PATTERNS.renalFunction.test(text)) {
-          PATTERNS.labValue.lastIndex = 0
-          PATTERNS.renalFunction.lastIndex = 0
-          return <ClinicalValue type="lab">{text}</ClinicalValue>
-        }
-        if (PATTERNS.bloodPressure.test(text) || PATTERNS.heartRate.test(text) || PATTERNS.temperature.test(text)) {
-          PATTERNS.bloodPressure.lastIndex = 0
-          PATTERNS.heartRate.lastIndex = 0
-          PATTERNS.temperature.lastIndex = 0
-          return <ClinicalValue type="vital">{text}</ClinicalValue>
-        }
-
+        if (PATTERNS.dosage.test(text)) return <ClinicalValue type="dosage">{text}</ClinicalValue>
+        if (PATTERNS.labValue.test(text) || PATTERNS.renalFunction.test(text)) return <ClinicalValue type="lab">{text}</ClinicalValue>
+        if (PATTERNS.bloodPressure.test(text) || PATTERNS.heartRate.test(text) || PATTERNS.temperature.test(text)) return <ClinicalValue type="vital">{text}</ClinicalValue>
         return (
-          <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[0.85em] text-[#1e3a5f] dark:bg-slate-800 dark:text-blue-300">
+          <code className="rounded bg-surface-tertiary px-1.5 py-0.5 font-mono text-[0.85em] text-accent">
             {children}
           </code>
         )
       }
-      return <code className="font-mono text-[0.85em] text-slate-100">{children}</code>
+      return <code className="font-mono text-[0.85em]">{children}</code>
     },
 
     pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
 
     h1: ({ children }) => (
-      <h1 className="mb-3 border-b border-slate-200 pb-2 text-lg font-semibold text-slate-900 dark:border-slate-700 dark:text-white">
-        {children}
-      </h1>
+      <h1 className="mb-3 border-b border-border-primary pb-2 text-lg font-semibold text-ink">{children}</h1>
     ),
 
     h2: ({ children }) => (
-      <h2 className="mb-2 mt-4 text-base font-semibold text-slate-800 dark:text-slate-100">{children}</h2>
+      <h2 className="mb-2 mt-4 border-b border-border-secondary pb-1 text-base font-semibold text-ink">{children}</h2>
     ),
 
     h3: ({ children }) => (
-      <h3 className="mb-2 mt-3 text-sm font-semibold text-slate-700 dark:text-slate-200">{children}</h3>
+      <h3 className="mb-2 mt-3 text-sm font-semibold text-ink">{children}</h3>
     ),
 
     table: ({ children }) => (
-      <div className="mb-3 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-        <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
-          {children}
-        </table>
+      <div className="mb-3 overflow-x-auto rounded-md border border-border-primary">
+        <table className="min-w-full divide-y divide-border-primary text-sm">{children}</table>
       </div>
     ),
 
     thead: ({ children }) => (
-      <thead className="bg-slate-50 dark:bg-slate-800">{children}</thead>
+      <thead className="bg-surface-tertiary">{children}</thead>
     ),
 
     th: ({ children }) => (
-      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
-        {children}
-      </th>
+      <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-ink-secondary">{children}</th>
+    ),
+
+    tr: ({ children }) => (
+      <tr className="even:bg-surface-secondary">{children}</tr>
     ),
 
     td: ({ children }) => {
       const text = typeof children === "string" ? children : ""
-
-      // Auto-detect and format clinical values in table cells
       if (PATTERNS.dosage.test(text) || PATTERNS.labValue.test(text)) {
-        PATTERNS.dosage.lastIndex = 0
-        PATTERNS.labValue.lastIndex = 0
         return (
-          <td className="px-3 py-2 font-mono text-slate-900 dark:text-slate-100">
+          <td className="px-3 py-2">
             <ClinicalValue type="lab">{text}</ClinicalValue>
           </td>
         )
       }
-
-      return (
-        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{children}</td>
-      )
+      return <td className="px-3 py-2 text-ink">{children}</td>
     },
 
-    hr: () => <hr className="my-4 border-slate-200 dark:border-slate-700" />,
-  }
+    hr: () => <hr className="my-4 border-border-primary" />,
+  }), [])
 
   return (
     <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
@@ -306,5 +242,4 @@ export default function ClinicalMarkdown({ content }) {
   )
 }
 
-// Export sub-components for use elsewhere
-export { ClinicalValue, CollapsibleSection, CopyButton }
+export { ClinicalValue }

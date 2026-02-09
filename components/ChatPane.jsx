@@ -1,22 +1,28 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Pencil, RefreshCw, Check, X, AlertCircle, Loader2 } from "lucide-react"
+import { Pencil, RefreshCw, Check, X, Loader2, AlertTriangle } from "lucide-react"
 import Message from "./Message"
 import Composer from "./Composer"
 import QuickActions from "./QuickActions"
 import ClinicalMarkdown from "./ClinicalMarkdown"
 import { cls } from "./utils"
 
-export default function ChatPane({ conversation, onSend, onEditMessage, onResendMessage }) {
+const EXAMPLE_QUERIES = [
+  "55M with acute chest pain radiating to left arm, diaphoretic",
+  "Drug interaction check: Warfarin + Amiodarone",
+  "Pediatric dosing for amoxicillin, 8yo, 25kg, otitis media",
+  "COPD exacerbation: initial management and discharge criteria",
+  "Stroke LKW 2 hours, BP 190/100, NIHSS 8",
+]
+
+export default function ChatPane({ conversation, onSend, onEditMessage, onResendMessage, onReferenceSearch }) {
   const [editingId, setEditingId] = useState(null)
   const [draft, setDraft] = useState("")
   const [busy, setBusy] = useState(false)
-  const [quickActionsExpanded, setQuickActionsExpanded] = useState(true)
   const [composerValue, setComposerValue] = useState("")
   const messagesEndRef = useRef(null)
 
-  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" })
@@ -42,7 +48,7 @@ export default function ChatPane({ conversation, onSend, onEditMessage, onResend
   function saveAndResend() {
     if (!editingId) return
     onEditMessage?.(editingId, draft)
-    onResendMessage?.(editingId)
+    onResendMessage?.(editingId, draft)
     cancelEdit()
   }
 
@@ -54,105 +60,128 @@ export default function ChatPane({ conversation, onSend, onEditMessage, onResend
     if (!text.trim()) return
     setBusy(true)
     setComposerValue("")
-    await onSend?.(text, files)
-    setBusy(false)
+    try {
+      await onSend?.(text, files)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-slate-950">
-      {/* Quick Actions - Show only when no messages or collapsed */}
-      {messages.length === 0 && (
-        <QuickActions
-          onSelectTemplate={handleQuickAction}
-          isExpanded={quickActionsExpanded}
-          onToggleExpand={() => setQuickActionsExpanded(!quickActionsExpanded)}
-        />
-      )}
-
+    <div className="flex h-full min-h-0 flex-1 flex-col">
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-3xl space-y-6">
-          {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                How can I help?
-              </h3>
-              <p className="mt-2 max-w-sm text-sm text-slate-500 dark:text-slate-400">
-                Use the quick actions above or describe a clinical scenario.
+      <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-6">
+        {messages.length === 0 ? (
+          /* ── Welcome Screen ── */
+          <div className="mx-auto max-w-2xl animate-fade-in">
+            {/* Minimal hero */}
+            <div className="pb-5 pt-4 sm:pt-8">
+              <h2 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">
+                Clinical decision support,<br />
+                <span className="text-ink-tertiary">powered by MedGemma.</span>
+              </h2>
+              <p className="mt-2 max-w-lg text-sm leading-relaxed text-ink-secondary">
+                Ask about differential diagnosis, drug interactions, dosing calculations, lab interpretation, and clinical workflows.
               </p>
+            </div>
 
-              {/* Example prompts */}
-              <div className="mt-8 w-full max-w-md space-y-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                  Example queries
-                </p>
-                {[
-                  "55M with acute chest pain radiating to left arm, diaphoretic",
-                  "Drug interaction check: Warfarin + Amiodarone",
-                  "Pediatric dosing for amoxicillin, 8yo, 25kg, otitis media",
-                  "New-onset headache with neck stiffness, 27F, febrile",
-                  "Antibiotic choice for CAP, penicillin allergy, outpatient",
-                  "COPD exacerbation: initial management and discharge criteria",
-                  "Stroke LKW 2 hours, BP 190/100, NIHSS 8",
-                ].map((example, i) => (
+            {/* Disclaimer — tight, inline */}
+            <div className="mb-5 flex items-start gap-2.5 rounded-lg border border-amber/20 bg-amber-light px-3 py-2 text-[13px] leading-relaxed">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber" />
+              <p className="text-ink-secondary">
+                <span className="font-medium text-ink">Clinical reference tool.</span>{" "}
+                Verify suggestions with primary sources and clinical judgment.
+              </p>
+            </div>
+
+            {/* Quick Actions — horizontal, compact */}
+            <div className="mb-5">
+              <QuickActions onSelectTemplate={handleQuickAction} />
+            </div>
+
+            {/* Example queries — simple list, not cards */}
+            <div>
+              <h3 className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-ink-faint">
+                Try asking
+              </h3>
+              <div className="flex flex-col gap-1">
+                {EXAMPLE_QUERIES.map((example, i) => (
                   <button
                     key={i}
                     onClick={() => setComposerValue(example)}
-                    className="w-full rounded-lg border border-slate-200 bg-white p-3 text-left text-sm text-slate-600 transition hover:border-[#1e3a5f]/30 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-blue-500/30 dark:hover:bg-slate-700"
+                    className="rounded-md px-2.5 py-1.5 text-left text-sm text-ink-secondary transition-colors hover:bg-surface-tertiary hover:text-ink"
                   >
                     {example}
                   </button>
                 ))}
               </div>
             </div>
-          ) : (
-            <>
-              {messages.map((m, index) => (
-                <div key={m.id} className="space-y-2">
+          </div>
+        ) : (
+          /* ── Chat Messages ── */
+          <div className="mx-auto max-w-2xl space-y-0">
+            {messages.map((m, index) => {
+              const isLastAssistant = m.role === "assistant" && index === messages.length - 1
+              const isStreaming = isLastAssistant && !m.content?.trim()
+
+              return (
+                <div key={m.id}>
                   {editingId === m.id ? (
-                    <div className="rounded-xl border border-[#1e3a5f]/20 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                    <div className="rounded-lg border border-border-primary bg-surface-secondary p-4">
                       <textarea
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
-                        className="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:border-[#1e3a5f] focus:ring-2 focus:ring-[#1e3a5f]/20 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-blue-500"
+                        className="w-full resize-y rounded-md border border-border-primary bg-surface-primary p-3 text-sm text-ink outline-none focus:border-border-focus"
                         rows={3}
                       />
                       <div className="mt-3 flex items-center gap-2">
                         <button
                           onClick={saveEdit}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-[#1e3a5f] px-4 py-2 text-xs font-medium text-white transition hover:bg-[#2d4a6f]"
+                          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:opacity-90"
                         >
                           <Check className="h-3.5 w-3.5" /> Save
                         </button>
                         <button
                           onClick={saveAndResend}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+                          className="inline-flex items-center gap-1.5 rounded-md border border-border-primary bg-surface-primary px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-surface-tertiary"
                         >
                           <RefreshCw className="h-3.5 w-3.5" /> Save & Resend
                         </button>
                         <button
                           onClick={cancelEdit}
-                          className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700"
+                          className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-ink-tertiary transition-colors hover:bg-surface-tertiary hover:text-ink"
                         >
                           <X className="h-3.5 w-3.5" /> Cancel
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <Message role={m.role}>
+                    <Message
+                      role={m.role}
+                      createdAt={m.createdAt}
+                      content={m.content}
+                      onReferenceSearch={onReferenceSearch}
+                      onRegenerate={m.role === "assistant" ? () => {
+                        const msgIndex = messages.findIndex((msg) => msg.id === m.id)
+                        for (let i = msgIndex - 1; i >= 0; i--) {
+                          if (messages[i].role === "user") {
+                            onResendMessage?.(messages[i].id)
+                            break
+                          }
+                        }
+                      } : undefined}
+                    >
                       {m.role === "assistant" && !m.content?.trim() ? (
-                        <div className="flex items-center gap-3 py-1">
+                        <div className="flex items-center gap-2.5 py-2">
                           <div className="flex items-center gap-1">
-                            <div className="h-2 w-2 animate-bounce rounded-full bg-[#1e3a5f] [animation-delay:-0.3s]" />
-                            <div className="h-2 w-2 animate-bounce rounded-full bg-[#1e3a5f] [animation-delay:-0.15s]" />
-                            <div className="h-2 w-2 animate-bounce rounded-full bg-[#1e3a5f]" />
+                            <span className="typing-dot" />
+                            <span className="typing-dot" />
+                            <span className="typing-dot" />
                           </div>
-                          <span className="text-sm text-slate-500 dark:text-slate-400">
-                            Analyzing clinical data...
-                          </span>
+                          <span className="text-sm text-ink-tertiary">Thinking...</span>
                         </div>
                       ) : (
-                        <div className="text-sm leading-relaxed">
+                        <div className={cls("text-sm leading-relaxed", isLastAssistant && busy && "streaming-cursor")}>
                           {m.role === "assistant" ? (
                             <ClinicalMarkdown content={m.content} />
                           ) : (
@@ -164,13 +193,13 @@ export default function ChatPane({ conversation, onSend, onEditMessage, onResend
                                       <img
                                         src={url}
                                         alt="attachment"
-                                        className="h-32 w-full rounded-lg border border-white/10 object-cover"
+                                        className="aspect-square w-full rounded-lg object-cover ring-1 ring-border-primary"
                                       />
                                       {m.imagesUploading && (
-                                        <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/35 text-[11px] font-medium text-white">
+                                        <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/40 text-[11px] font-medium text-white">
                                           <div className="flex items-center gap-2">
                                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                            <span>Uploading…</span>
+                                            <span>Uploading...</span>
                                           </div>
                                         </div>
                                       )}
@@ -184,29 +213,29 @@ export default function ChatPane({ conversation, onSend, onEditMessage, onResend
                         </div>
                       )}
                       {m.role === "user" && (
-                        <div className="mt-2 flex gap-3 border-t border-white/10 pt-2 text-[11px]">
+                        <div className="mt-1 flex gap-3 text-[11px]">
                           <button
-                            className="inline-flex items-center gap-1 text-white/70 transition hover:text-white"
+                            className="text-ink-faint transition-colors hover:text-ink-secondary"
                             onClick={() => startEdit(m)}
                           >
-                            <Pencil className="h-3 w-3" /> Edit
+                            Edit
                           </button>
                           <button
-                            className="inline-flex items-center gap-1 text-white/70 transition hover:text-white"
+                            className="text-ink-faint transition-colors hover:text-ink-secondary"
                             onClick={() => onResendMessage?.(m.id)}
                           >
-                            <RefreshCw className="h-3 w-3" /> Resend
+                            Resend
                           </button>
                         </div>
                       )}
                     </Message>
                   )}
                 </div>
-              ))}
-              <div ref={messagesEndRef} />
-            </>
-          )}
-        </div>
+              )
+            })}
+            <div ref={messagesEndRef} />
+          </div>
+        )}
       </div>
 
       <Composer
@@ -214,6 +243,7 @@ export default function ChatPane({ conversation, onSend, onEditMessage, onResend
         busy={busy}
         value={composerValue}
         onChange={setComposerValue}
+        onReferenceSearch={onReferenceSearch}
       />
     </div>
   )

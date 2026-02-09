@@ -1,243 +1,222 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
+/* ─────────────────────────────────────────────────
+   Design System: "Instrument"
+   Warm neutrals, single accent, solid surfaces.
+   ───────────────────────────────────────────────── */
+
 :root {
-  /* Modern Hospital System - Primary Palette */
-  --medical-navy: oklch(0.25 0.05 250);
-  --medical-navy-light: oklch(0.35 0.06 250);
-  --medical-slate: oklch(0.45 0.04 250);
-  --medical-blue: oklch(0.55 0.12 250);
-  --medical-sky: oklch(0.92 0.02 250);
+  /* Neutral scale — warm stone, not cold slate */
+  --ink: #1a1a1a;
+  --ink-secondary: #525252;
+  --ink-tertiary: #8a8a8a;
+  --ink-faint: #b3b3b3;
 
-  /* Semantic Colors */
-  --medical-success: oklch(0.65 0.15 155);
-  --medical-warning: oklch(0.75 0.18 75);
-  --medical-alert: oklch(0.60 0.22 25);
-  --medical-critical: oklch(0.55 0.25 15);
+  /* Surfaces */
+  --surface-primary: #ffffff;
+  --surface-secondary: #fafaf9;
+  --surface-tertiary: #f5f5f4;
+  --surface-sunken: #eeeeec;
 
-  /* Surface Colors */
-  --background: oklch(0.985 0.005 250);
-  --foreground: oklch(0.20 0.03 250);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.20 0.03 250);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.20 0.03 250);
+  /* Borders */
+  --border-primary: #e5e5e3;
+  --border-secondary: #ebebea;
+  --border-focus: #0d9488;
 
-  /* Interactive */
-  --primary: var(--medical-navy);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.96 0.01 250);
-  --secondary-foreground: oklch(0.25 0.04 250);
-  --muted: oklch(0.96 0.01 250);
-  --muted-foreground: oklch(0.50 0.02 250);
-  --accent: var(--medical-blue);
-  --accent-foreground: oklch(0.98 0 0);
+  /* Accent — a confident teal, used sparingly */
+  --accent: #0d9488;
+  --accent-light: #ccfbf1;
+  --accent-muted: #5eead4;
+  --accent-fg: #ffffff;
 
-  /* Status */
-  --destructive: var(--medical-alert);
-  --destructive-foreground: oklch(0.98 0 0);
-  --warning: var(--medical-warning);
-  --success: var(--medical-success);
+  /* Semantic */
+  --red: #dc2626;
+  --red-light: #fef2f2;
+  --amber: #d97706;
+  --amber-light: #fffbeb;
+  --emerald: #059669;
+  --emerald-light: #ecfdf5;
 
-  /* Borders & Inputs */
-  --border: oklch(0.90 0.01 250);
-  --input: oklch(0.96 0.01 250);
-  --ring: var(--medical-blue);
+  /* Clinical value highlighting */
+  --clinical-dosage-bg: #ecfdf5;
+  --clinical-dosage-fg: #065f46;
+  --clinical-dosage-border: #a7f3d0;
+  --clinical-lab-bg: #f5f3ff;
+  --clinical-lab-fg: #5b21b6;
+  --clinical-lab-border: #ddd6fe;
+  --clinical-vital-bg: #eff6ff;
+  --clinical-vital-fg: #1e40af;
+  --clinical-vital-border: #bfdbfe;
 
-  /* Charts - Medical themed */
-  --chart-1: var(--medical-navy);
-  --chart-2: var(--medical-blue);
-  --chart-3: var(--medical-success);
-  --chart-4: var(--medical-warning);
-  --chart-5: var(--medical-alert);
+  /* Layout */
+  --header-height: 52px;
+  --sidebar-width: 280px;
+  --sidebar-collapsed-width: 56px;
+  --content-max-width: 720px;
 
-  --radius: 0.5rem;
-
-  /* Sidebar */
-  --sidebar: oklch(0.98 0.005 250);
-  --sidebar-foreground: oklch(0.25 0.04 250);
-  --sidebar-primary: var(--medical-navy);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.94 0.02 250);
-  --sidebar-accent-foreground: oklch(0.25 0.04 250);
-  --sidebar-border: oklch(0.92 0.01 250);
-  --sidebar-ring: var(--medical-blue);
+  --radius: 8px;
 }
 
 .dark {
-  /* Dark mode - deeper medical navy */
-  --background: oklch(0.14 0.02 250);
-  --foreground: oklch(0.95 0.01 250);
-  --card: oklch(0.18 0.02 250);
-  --card-foreground: oklch(0.95 0.01 250);
-  --popover: oklch(0.18 0.02 250);
-  --popover-foreground: oklch(0.95 0.01 250);
+  --ink: #ececec;
+  --ink-secondary: #a1a1a1;
+  --ink-tertiary: #737373;
+  --ink-faint: #525252;
 
-  --primary: oklch(0.70 0.12 250);
-  --primary-foreground: oklch(0.12 0.02 250);
-  --secondary: oklch(0.22 0.02 250);
-  --secondary-foreground: oklch(0.95 0.01 250);
-  --muted: oklch(0.22 0.02 250);
-  --muted-foreground: oklch(0.65 0.02 250);
-  --accent: oklch(0.55 0.12 250);
-  --accent-foreground: oklch(0.95 0.01 250);
+  --surface-primary: #161616;
+  --surface-secondary: #1c1c1c;
+  --surface-tertiary: #232323;
+  --surface-sunken: #0f0f0f;
 
-  --destructive: oklch(0.50 0.20 20);
-  --destructive-foreground: oklch(0.95 0 0);
+  --border-primary: #2a2a2a;
+  --border-secondary: #232323;
+  --border-focus: #14b8a6;
 
-  --border: oklch(0.28 0.02 250);
-  --input: oklch(0.22 0.02 250);
-  --ring: oklch(0.55 0.12 250);
+  --accent: #14b8a6;
+  --accent-light: #042f2e;
+  --accent-muted: #0d9488;
+  --accent-fg: #ffffff;
 
-  --chart-1: oklch(0.60 0.12 250);
-  --chart-2: oklch(0.65 0.15 200);
-  --chart-3: oklch(0.65 0.15 155);
-  --chart-4: oklch(0.70 0.16 75);
-  --chart-5: oklch(0.60 0.20 25);
+  --red: #f87171;
+  --red-light: #1c0a0a;
+  --amber: #fbbf24;
+  --amber-light: #1c1506;
+  --emerald: #34d399;
+  --emerald-light: #0a1c14;
 
-  --sidebar: oklch(0.16 0.02 250);
-  --sidebar-foreground: oklch(0.95 0.01 250);
-  --sidebar-primary: oklch(0.65 0.12 250);
-  --sidebar-primary-foreground: oklch(0.95 0.01 250);
-  --sidebar-accent: oklch(0.22 0.02 250);
-  --sidebar-accent-foreground: oklch(0.95 0.01 250);
-  --sidebar-border: oklch(0.25 0.02 250);
-  --sidebar-ring: oklch(0.55 0.12 250);
+  --clinical-dosage-bg: #0a1c14;
+  --clinical-dosage-fg: #6ee7b7;
+  --clinical-dosage-border: #064e3b;
+  --clinical-lab-bg: #1a0f2e;
+  --clinical-lab-fg: #c4b5fd;
+  --clinical-lab-border: #4c1d95;
+  --clinical-vital-bg: #0c1524;
+  --clinical-vital-fg: #93c5fd;
+  --clinical-vital-border: #1e3a5f;
 }
 
 @theme inline {
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
-  --font-display: 'Inter', system-ui, sans-serif;
 
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
+  --color-ink: var(--ink);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-tertiary: var(--ink-tertiary);
+  --color-ink-faint: var(--ink-faint);
+
+  --color-surface-primary: var(--surface-primary);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-surface-tertiary: var(--surface-tertiary);
+  --color-surface-sunken: var(--surface-sunken);
+
+  --color-border-primary: var(--border-primary);
+  --color-border-secondary: var(--border-secondary);
+  --color-border-focus: var(--border-focus);
+
   --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
+  --color-accent-light: var(--accent-light);
+  --color-accent-muted: var(--accent-muted);
+  --color-accent-fg: var(--accent-fg);
 
-  /* Medical semantic colors */
-  --color-medical-navy: var(--medical-navy);
-  --color-medical-blue: var(--medical-blue);
-  --color-medical-success: var(--medical-success);
-  --color-medical-warning: var(--medical-warning);
-  --color-medical-alert: var(--medical-alert);
-  --color-medical-critical: var(--medical-critical);
+  --color-red: var(--red);
+  --color-red-light: var(--red-light);
+  --color-amber: var(--amber);
+  --color-amber-light: var(--amber-light);
+  --color-emerald: var(--emerald);
+  --color-emerald-light: var(--emerald-light);
 
-  --radius-sm: calc(var(--radius) - 2px);
+  --color-clinical-dosage-bg: var(--clinical-dosage-bg);
+  --color-clinical-dosage-fg: var(--clinical-dosage-fg);
+  --color-clinical-dosage-border: var(--clinical-dosage-border);
+  --color-clinical-lab-bg: var(--clinical-lab-bg);
+  --color-clinical-lab-fg: var(--clinical-lab-fg);
+  --color-clinical-lab-border: var(--clinical-lab-border);
+  --color-clinical-vital-bg: var(--clinical-vital-bg);
+  --color-clinical-vital-fg: var(--clinical-vital-fg);
+  --color-clinical-vital-border: var(--clinical-vital-border);
+
+  --radius-sm: 4px;
   --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 2px);
-  --radius-xl: calc(var(--radius) + 6px);
-
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    border-color: var(--border-primary);
   }
   body {
-    @apply bg-background text-foreground antialiased;
+    background: var(--surface-primary);
+    color: var(--ink);
     font-feature-settings: "cv11", "ss01", "ss03";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
-/* Medical Cross Icon Animation */
-@keyframes pulse-gentle {
+/* ── Streaming cursor ── */
+@keyframes blink-cursor {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  50% { opacity: 0; }
+}
+.streaming-cursor::after {
+  content: "▎";
+  display: inline;
+  animation: blink-cursor 0.8s step-end infinite;
+  color: var(--accent);
+  font-weight: 300;
 }
 
-.medical-cross {
-  animation: pulse-gentle 3s ease-in-out infinite;
+/* ── Typing indicator ── */
+@keyframes typing-wave {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-4px); }
 }
-
-/* Priority Indicator Styles */
-.priority-critical {
-  color: var(--medical-critical);
+.typing-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: typing-wave 1.4s ease-in-out infinite;
 }
+.typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-dot:nth-child(3) { animation-delay: 0.3s; }
 
-.priority-high {
-  color: var(--medical-alert);
-}
-
-.priority-medium {
-  color: var(--medical-warning);
-}
-
-.priority-normal {
-  color: var(--medical-blue);
-}
-
-/* Subtle gradient for cards */
-.medical-card-gradient {
-  background: linear-gradient(
-    135deg,
-    oklch(1 0 0) 0%,
-    oklch(0.98 0.005 250) 100%
-  );
-}
-
-.dark .medical-card-gradient {
-  background: linear-gradient(
-    135deg,
-    oklch(0.18 0.02 250) 0%,
-    oklch(0.16 0.025 250) 100%
-  );
-}
-
-/* Scrollbar styling */
+/* ── Scrollbar ── */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: oklch(0.80 0.01 250);
+  background: var(--border-primary);
   border-radius: 3px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.70 0.02 250);
+  background: var(--ink-faint);
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: oklch(0.35 0.02 250);
+/* ── Focus ring ── */
+.focus-ring {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+.focus-ring:focus-visible {
+  outline-color: var(--border-focus);
 }
 
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.45 0.02 250);
+/* ── Subtle fade-in for page load ── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
 }
