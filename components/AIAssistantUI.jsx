@@ -13,7 +13,7 @@ const STORAGE_KEY_SELECTED = "medgemma-selectedId"
 const SAVE_DEBOUNCE_MS = 400
 
 export default function AIAssistantUI() {
-  const apiBase = process.env.NEXT_PUBLIC_MODAL_API_BASE || "https://pradhankukiran--medgemma-modal-api-fastapi-app.modal.run"
+  const apiBase = "/api/chat"
   const activeRequestRef = useRef(null)
   const warmupRef = useRef(false)
   const saveTimerRef = useRef(null)
@@ -167,7 +167,7 @@ export default function AIAssistantUI() {
       top_p: 1,
       system_prompt: "",
     }
-    fetch(`${apiBase}/chat`, {
+    fetch(`${apiBase}?endpoint=chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -386,7 +386,7 @@ export default function AIAssistantUI() {
     streamingRef.current = true
 
     try {
-      const res = await fetch(`${apiBase}/${endpoint}`, {
+      const res = await fetch(`${apiBase}?endpoint=${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
