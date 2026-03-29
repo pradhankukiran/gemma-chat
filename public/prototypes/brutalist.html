@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monochrome Brutalist — MedGemma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #000;
+    --fg: #fff;
+    --mid: #666;
+    --dim: #333;
+    --rule: #222;
+  }
+
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+  }
+
+  /* Sidebar — raw text list */
+  .sidebar {
+    width: 260px;
+    border-right: 2px solid var(--rule);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .sidebar-header {
+    padding: 16px 16px 12px;
+    border-bottom: 2px solid var(--rule);
+  }
+  .sidebar-header h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--mid);
+  }
+
+  .sidebar-list {
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .sidebar-list::-webkit-scrollbar { display: none; }
+
+  .sidebar-item {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--rule);
+    cursor: pointer;
+    transition: background 0.05s;
+  }
+  .sidebar-item:hover { background: #0a0a0a; }
+  .sidebar-item.active { background: #111; border-left: 3px solid #fff; padding-left: 13px; }
+
+  .sidebar-item .time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+    margin-bottom: 2px;
+  }
+  .sidebar-item .title {
+    font-size: 13px;
+    color: var(--mid);
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sidebar-item.active .title { color: var(--fg); }
+
+  /* Main area */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  /* Status bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 24px;
+    border-bottom: 2px solid var(--rule);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+  }
+  .status-bar .active-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .status-bar .dot {
+    width: 6px;
+    height: 6px;
+    background: #fff;
+  }
+  .status-bar .shortcuts span {
+    margin-left: 16px;
+  }
+  .status-bar kbd {
+    border: 1px solid var(--dim);
+    padding: 1px 4px;
+    font-size: 10px;
+  }
+
+  /* Messages */
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule) transparent;
+  }
+
+  .exchange {
+    border-bottom: 2px solid var(--rule);
+  }
+
+  /* User message */
+  .msg-user {
+    padding: 16px 32px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .msg-user .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--dim);
+    margin-bottom: 6px;
+  }
+  .msg-user p {
+    font-size: 14px;
+    color: var(--mid);
+    line-height: 1.5;
+  }
+
+  /* Assistant message */
+  .msg-assistant {
+    padding: 24px 32px 28px;
+  }
+  .msg-assistant .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--dim);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .msg-assistant .label .time {
+    color: var(--dim);
+    font-weight: 400;
+  }
+
+  .msg-assistant h2 {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    margin-bottom: 20px;
+    max-width: 640px;
+  }
+
+  .msg-assistant h3 {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--mid);
+    margin-top: 24px;
+    margin-bottom: 10px;
+  }
+
+  .msg-assistant p {
+    font-size: 20px;
+    line-height: 1.7;
+    color: var(--fg);
+    max-width: 680px;
+    margin-bottom: 12px;
+  }
+
+  .msg-assistant .detail {
+    font-size: 15px;
+    color: var(--mid);
+    max-width: 680px;
+    line-height: 1.6;
+    margin-bottom: 8px;
+  }
+
+  /* Clinical values — the only color */
+  .cv {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    padding: 1px 5px;
+    font-size: 0.85em;
+  }
+  .cv-dose { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+  .cv-lab { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
+  .cv-vital { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+  .cv-critical { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+
+  /* Actions row */
+  .actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 2px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+  .actions button {
+    background: none;
+    border: 1px solid var(--rule);
+    color: var(--dim);
+    padding: 4px 10px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: inherit;
+    transition: all 0.05s;
+  }
+  .actions button:hover {
+    border-color: var(--mid);
+    color: var(--fg);
+    background: #111;
+  }
+
+  /* Composer — full width */
+  .composer {
+    border-top: 2px solid var(--rule);
+    padding: 0;
+    display: flex;
+    align-items: stretch;
+  }
+  .composer-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--fg);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    padding: 16px 24px;
+    outline: none;
+  }
+  .composer-input::placeholder { color: var(--dim); }
+
+  .composer-send {
+    padding: 16px 24px;
+    background: #fff;
+    color: #000;
+    border: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: opacity 0.1s;
+  }
+  .composer-send:hover { opacity: 0.8; }
+
+  /* Quick action chips */
+  .quick-actions {
+    display: flex;
+    gap: 2px;
+    padding: 8px 24px;
+    border-top: 1px solid var(--rule);
+  }
+  .quick-actions button {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    background: none;
+    border: 1px solid var(--rule);
+    color: var(--dim);
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: all 0.05s;
+  }
+  .quick-actions button:hover {
+    border-color: var(--fg);
+    color: var(--fg);
+  }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-header">
+    <h1>MedGemma // Sessions</h1>
+  </div>
+  <div class="sidebar-list">
+    <div class="sidebar-item active">
+      <div class="time">14:34 — TODAY</div>
+      <div class="title">55M Chest Pain → Inferior STEMI</div>
+    </div>
+    <div class="sidebar-item">
+      <div class="time">11:20 — TODAY</div>
+      <div class="title">Warfarin + Amiodarone Interaction</div>
+    </div>
+    <div class="sidebar-item">
+      <div class="time">09:15 — YESTERDAY</div>
+      <div class="title">Pediatric Amoxicillin Dosing</div>
+    </div>
+    <div class="sidebar-item">
+      <div class="time">16:42 — MAR 27</div>
+      <div class="title">COPD Exacerbation Management</div>
+    </div>
+    <div class="sidebar-item">
+      <div class="time">08:30 — MAR 26</div>
+      <div class="title">Acute Stroke LKW 2hr</div>
+    </div>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <div class="status-bar">
+    <div class="active-indicator">
+      <div class="dot"></div>
+      <span>MEDGEMMA ACTIVE</span>
+    </div>
+    <div class="shortcuts">
+      <span><kbd>Enter</kbd> Send</span>
+      <span><kbd>/</kbd> Command</span>
+      <span><kbd>Cmd+N</kbd> New</span>
+    </div>
+  </div>
+
+  <div class="messages">
+    <div class="exchange">
+      <div class="msg-user">
+        <div class="label">INPUT</div>
+        <p>55-year-old male, acute chest pain radiating to left arm, diaphoretic. History: HTN, DM2. BP 158/94, HR 102. Differential and immediate workup?</p>
+      </div>
+      <div class="msg-assistant">
+        <div class="label">
+          RESPONSE
+          <span class="time">847 TOKENS / 2.1s</span>
+        </div>
+
+        <h2>Acute Coronary Syndrome is the leading diagnosis. Activate ACS protocol.</h2>
+
+        <h3>Differential</h3>
+        <p><strong>ACS (STEMI/NSTEMI)</strong> — highest probability given classic presentation with substernal pain, left arm radiation, diaphoresis, and multiple cardiac risk factors.</p>
+        <p class="detail">Also consider: Aortic dissection (check bilateral BP), PE (assess Wells score), tension pneumothorax (auscultate).</p>
+
+        <h3>Immediate Orders</h3>
+        <p>12-lead ECG within 10 minutes. STAT troponin, CBC, BMP, coags. Chest X-ray portable. <span class="cv cv-dose">Aspirin 325mg</span> chewable now. Continuous telemetry. Two large-bore IVs. Type and screen.</p>
+
+        <div class="actions">
+          <button>[COPY]</button>
+          <button>[REGENERATE]</button>
+          <button>[/drug ASPIRIN]</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="exchange">
+      <div class="msg-user">
+        <div class="label">INPUT</div>
+        <p>ECG shows ST elevation in leads II, III, aVF. Troponin I is 2.4 ng/mL.</p>
+      </div>
+      <div class="msg-assistant">
+        <div class="label">
+          RESPONSE
+          <span class="time">1,204 TOKENS / 3.8s</span>
+        </div>
+
+        <h2>Inferior STEMI confirmed.<br>Activate cath lab. Door-to-balloon <span class="cv cv-critical">&lt;90 min</span>.</h2>
+
+        <h3>Pharmacotherapy — Immediate</h3>
+        <p><span class="cv cv-dose">Ticagrelor 180mg</span> PO loading. <span class="cv cv-dose">Heparin 60 U/kg</span> IV bolus (max 4,000 U). Continue aspirin. Hold beta-blocker if HR drops below 60.</p>
+
+        <h3>Critical Consideration</h3>
+        <p>Inferior STEMI has <span class="cv cv-critical">40% RV involvement</span> rate. Obtain right-sided V4R lead. If positive: no nitrates, no diuretics, volume-resuscitate with <span class="cv cv-dose">NS 250mL</span> boluses.</p>
+
+        <h3>Monitoring</h3>
+        <p class="detail">Serial troponins q3h. Continuous 12-lead if available. Target BP <span class="cv cv-vital">SBP 100–140</span>. Watch for bradycardia — inferior MI can cause vagal response. Atropine at bedside.</p>
+
+        <div class="actions">
+          <button>[COPY]</button>
+          <button>[REGENERATE]</button>
+          <button>[/drug TICAGRELOR]</button>
+          <button>[/drug HEPARIN]</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quick-actions">
+    <button>[DDX]</button>
+    <button>[DRUG]</button>
+    <button>[DOSE]</button>
+    <button>[LABS]</button>
+    <button>[CONTRA]</button>
+    <button>[CARDIAC]</button>
+  </div>
+
+  <div class="composer">
+    <input class="composer-input" type="text" placeholder="> enter clinical scenario or command..." autofocus>
+    <button class="composer-send">SEND</button>
+  </div>
+</div>
+
+</body>
+</html>

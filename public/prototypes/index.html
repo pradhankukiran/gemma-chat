@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MedGemma — Design Prototypes</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: #0a0a0a;
+    color: #e4e4e4;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+  }
+  .container { max-width: 640px; width: 100%; }
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin-bottom: 6px;
+  }
+  .subtitle {
+    color: #666;
+    font-size: 15px;
+    margin-bottom: 40px;
+  }
+  .cards { display: flex; flex-direction: column; gap: 12px; }
+  a.card {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 20px 24px;
+    background: #141414;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.15s;
+  }
+  a.card:hover {
+    border-color: rgba(20, 184, 166, 0.3);
+    background: #1a1a1a;
+  }
+  .card-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: #14b8a6;
+    background: rgba(20, 184, 166, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .card-info h2 {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .card-info p {
+    font-size: 14px;
+    color: #777;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Design Prototypes</h1>
+  <p class="subtitle">5 directions for MedGemma's UI. Click to explore.</p>
+  <div class="cards">
+    <a class="card" href="deep-space.html">
+      <span class="card-num">01</span>
+      <div class="card-info">
+        <h2>Deep Space</h2>
+        <p>Luminous cards floating on pitch black. Zero chrome, keyboard-first. Cmd+K palette for navigation.</p>
+      </div>
+    </a>
+    <a class="card" href="artifact.html">
+      <span class="card-num">02</span>
+      <div class="card-info">
+        <h2>The Artifact</h2>
+        <p>Response as full-screen document. Thread strip on left. Hover reference cards. The chat is secondary.</p>
+      </div>
+    </a>
+    <a class="card" href="brutalist.html">
+      <span class="card-num">03</span>
+      <div class="card-info">
+        <h2>Monochrome Brutalist</h2>
+        <p>Pure black and white. Massive typography. No rounded corners. Clinical values are the only color.</p>
+      </div>
+    </a>
+    <a class="card" href="canvas.html">
+      <span class="card-num">04</span>
+      <div class="card-info">
+        <h2>Thread Canvas</h2>
+        <p>Horizontal card canvas. Branch conversations, pin and compare responses side-by-side. Minimap navigation.</p>
+      </div>
+    </a>
+    <a class="card" href="ambient-glass.html">
+      <span class="card-num">05</span>
+      <div class="card-info">
+        <h2>Ambient Glass</h2>
+        <p>Living gradient mesh background. Frosted glass cards with depth layers. Translucent sidebar overlay.</p>
+      </div>
+    </a>
+  </div>
+</div>
+</body>
+</html>

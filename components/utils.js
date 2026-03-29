@@ -34,6 +34,22 @@ export function formatTime(date) {
   });
 }
 
+export function extractTurns(messages) {
+  const turns = []
+  for (let i = 0; i < messages.length; i++) {
+    if (messages[i].role === "user") {
+      const assistantMsg = messages[i + 1]?.role === "assistant" ? messages[i + 1] : null
+      turns.push({ index: turns.length, userMsg: messages[i], assistantMsg })
+    }
+  }
+  return turns
+}
+
+export function truncate(text, max = 80) {
+  if (!text || text.length <= max) return text || ""
+  return text.slice(0, max).trimEnd() + "..."
+}
+
 export function highlightMatch(text, query) {
   if (!query || !query.trim()) return [{ text, match: false }];
   const q = query.trim();

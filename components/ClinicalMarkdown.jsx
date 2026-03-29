@@ -114,126 +114,150 @@ function CodeBlock({ children, className }) {
 }
 
 export default function ClinicalMarkdown({ content }) {
-  const components = useMemo(() => ({
-    p: ({ children }) => (
-      <p className="mb-3 text-sm leading-relaxed text-ink last:mb-0">{children}</p>
-    ),
+  const components = useMemo(() => {
+    let sectionCounter = 0
 
-    ul: ({ children }) => <ul className="mb-3 space-y-1 pl-1">{children}</ul>,
+    return {
+      p: ({ children }) => (
+        <p className="mb-3.5 text-base leading-[1.75] text-ink last:mb-0">{children}</p>
+      ),
 
-    ol: ({ children }) => (
-      <ol className="mb-3 list-decimal space-y-1 pl-5 marker:font-medium marker:text-ink-tertiary">
-        {children}
-      </ol>
-    ),
+      ul: ({ children }) => <ul className="mb-4 space-y-1.5 pl-1">{children}</ul>,
 
-    li: ({ children }) => {
-      const text = typeof children?.[0] === "string" ? children[0] : ""
-      const isHighPriority = text.includes("rule out") || text.includes("first") || text.includes("stat") || text.includes("urgent")
-
-      return (
-        <li className={cls(
-          "relative pl-4 text-sm leading-relaxed text-ink",
-          isHighPriority && "font-medium"
-        )}>
-          <span className={cls(
-            "absolute left-0 top-[9px] h-1.5 w-1.5 rounded-full",
-            isHighPriority ? "bg-red" : "bg-ink-faint"
-          )} />
+      ol: ({ children }) => (
+        <ol className="mb-4 list-decimal space-y-1.5 pl-5 marker:font-medium marker:text-ink-tertiary">
           {children}
-        </li>
-      )
-    },
+        </ol>
+      ),
 
-    a: ({ href, children }) => (
-      <a
-        className="inline-flex items-center gap-0.5 font-medium text-accent underline underline-offset-2 hover:opacity-80"
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        {children}
-        <ExternalLink className="h-3 w-3" />
-      </a>
-    ),
+      li: ({ children }) => {
+        const text = typeof children?.[0] === "string" ? children[0] : ""
+        const isHighPriority = text.includes("rule out") || text.includes("first") || text.includes("stat") || text.includes("urgent")
 
-    strong: ({ children }) => {
-      const text = typeof children === "string" ? children : String(children || "")
-      if (PATTERNS.dosage.test(text)) return <ClinicalValue type="dosage">{text}</ClinicalValue>
-      if (PATTERNS.labValue.test(text)) return <ClinicalValue type="lab">{text}</ClinicalValue>
-      return <strong className="font-semibold text-ink">{children}</strong>
-    },
+        return (
+          <li className={cls(
+            "relative pl-4 text-[15px] leading-[1.7] text-ink",
+            isHighPriority && "font-medium"
+          )}>
+            <span className={cls(
+              "absolute left-0 top-[10px] h-1.5 w-1.5 rounded-full",
+              isHighPriority ? "bg-red" : "bg-ink-faint"
+            )} />
+            {children}
+          </li>
+        )
+      },
 
-    em: ({ children }) => <em className="italic text-ink-secondary">{children}</em>,
+      a: ({ href, children }) => (
+        <a
+          className="inline-flex items-center gap-0.5 font-medium text-accent underline underline-offset-2 hover:opacity-80"
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {children}
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      ),
 
-    blockquote: ({ children }) => (
-      <blockquote className="mb-3 flex gap-2 rounded-md border-l-2 border-accent/40 bg-surface-tertiary py-2 pl-3 pr-3 text-sm text-ink-secondary">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" />
-        <div>{children}</div>
-      </blockquote>
-    ),
-
-    code: ({ inline, children, className }) => {
-      if (inline) {
+      strong: ({ children }) => {
         const text = typeof children === "string" ? children : String(children || "")
         if (PATTERNS.dosage.test(text)) return <ClinicalValue type="dosage">{text}</ClinicalValue>
-        if (PATTERNS.labValue.test(text) || PATTERNS.renalFunction.test(text)) return <ClinicalValue type="lab">{text}</ClinicalValue>
-        if (PATTERNS.bloodPressure.test(text) || PATTERNS.heartRate.test(text) || PATTERNS.temperature.test(text)) return <ClinicalValue type="vital">{text}</ClinicalValue>
+        if (PATTERNS.labValue.test(text)) return <ClinicalValue type="lab">{text}</ClinicalValue>
+        return <strong className="font-semibold text-white">{children}</strong>
+      },
+
+      em: ({ children }) => <em className="italic text-ink-secondary">{children}</em>,
+
+      blockquote: ({ children }) => (
+        <blockquote className="my-5 rounded-r-lg border-l-[3px] border-accent bg-accent-dim py-4 pl-5 pr-5 text-base leading-[1.7]">
+          <div>{children}</div>
+        </blockquote>
+      ),
+
+      code: ({ inline, children, className }) => {
+        if (inline) {
+          const text = typeof children === "string" ? children : String(children || "")
+          if (PATTERNS.dosage.test(text)) return <ClinicalValue type="dosage">{text}</ClinicalValue>
+          if (PATTERNS.labValue.test(text) || PATTERNS.renalFunction.test(text)) return <ClinicalValue type="lab">{text}</ClinicalValue>
+          if (PATTERNS.bloodPressure.test(text) || PATTERNS.heartRate.test(text) || PATTERNS.temperature.test(text)) return <ClinicalValue type="vital">{text}</ClinicalValue>
+          return (
+            <code className="rounded bg-surface-tertiary px-1.5 py-0.5 font-mono text-[0.85em] text-accent">
+              {children}
+            </code>
+          )
+        }
+        return <code className="font-mono text-[0.85em]">{children}</code>
+      },
+
+      pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
+
+      h1: ({ children }) => (
+        <h1 className="mb-2 text-[28px] font-bold leading-tight tracking-tight text-white">
+          {children}
+        </h1>
+      ),
+
+      h2: ({ children }) => {
+        sectionCounter++
+        const num = String(sectionCounter).padStart(2, "0")
         return (
-          <code className="rounded bg-surface-tertiary px-1.5 py-0.5 font-mono text-[0.85em] text-accent">
-            {children}
-          </code>
+          <div className="mb-3.5 mt-9 flex items-center gap-2 border-b border-border-primary pb-2">
+            <span className="rounded bg-accent-dim px-1.5 py-0.5 font-mono text-[10px] font-medium text-accent">
+              {num}
+            </span>
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-accent">
+              {children}
+            </h2>
+          </div>
         )
-      }
-      return <code className="font-mono text-[0.85em]">{children}</code>
-    },
+      },
 
-    pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
+      h3: ({ children }) => (
+        <h3 className="mb-2 mt-5 text-[13px] font-semibold uppercase tracking-wide text-ink-secondary">
+          {children}
+        </h3>
+      ),
 
-    h1: ({ children }) => (
-      <h1 className="mb-3 border-b border-border-primary pb-2 text-lg font-semibold text-ink">{children}</h1>
-    ),
+      table: ({ children }) => (
+        <div className="my-4 overflow-x-auto">
+          <table className="w-full border-collapse text-sm">{children}</table>
+        </div>
+      ),
 
-    h2: ({ children }) => (
-      <h2 className="mb-2 mt-4 border-b border-border-secondary pb-1 text-base font-semibold text-ink">{children}</h2>
-    ),
+      thead: ({ children }) => (
+        <thead>{children}</thead>
+      ),
 
-    h3: ({ children }) => (
-      <h3 className="mb-2 mt-3 text-sm font-semibold text-ink">{children}</h3>
-    ),
+      th: ({ children }) => (
+        <th className="border-b border-border-primary px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-faint">
+          {children}
+        </th>
+      ),
 
-    table: ({ children }) => (
-      <div className="mb-3 overflow-x-auto rounded-md border border-border-primary">
-        <table className="min-w-full divide-y divide-border-primary text-sm">{children}</table>
-      </div>
-    ),
+      tr: ({ children }) => (
+        <tr className="transition-colors hover:bg-white/[0.02]">{children}</tr>
+      ),
 
-    thead: ({ children }) => (
-      <thead className="bg-surface-tertiary">{children}</thead>
-    ),
-
-    th: ({ children }) => (
-      <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-ink-secondary">{children}</th>
-    ),
-
-    tr: ({ children }) => (
-      <tr className="even:bg-surface-secondary">{children}</tr>
-    ),
-
-    td: ({ children }) => {
-      const text = typeof children === "string" ? children : ""
-      if (PATTERNS.dosage.test(text) || PATTERNS.labValue.test(text)) {
+      td: ({ children }) => {
+        const text = typeof children === "string" ? children : ""
+        if (PATTERNS.dosage.test(text) || PATTERNS.labValue.test(text)) {
+          return (
+            <td className="border-b border-white/[0.03] px-3 py-2.5">
+              <ClinicalValue type="lab">{text}</ClinicalValue>
+            </td>
+          )
+        }
         return (
-          <td className="px-3 py-2">
-            <ClinicalValue type="lab">{text}</ClinicalValue>
+          <td className="border-b border-white/[0.03] px-3 py-2.5 text-ink-secondary first:font-medium first:text-ink">
+            {children}
           </td>
         )
-      }
-      return <td className="px-3 py-2 text-ink">{children}</td>
-    },
+      },
 
-    hr: () => <hr className="my-4 border-border-primary" />,
-  }), [])
+      hr: () => <hr className="my-6 border-border-primary" />,
+    }
+  }, [])
 
   return (
     <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>

@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ambient Glass — MedGemma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: #0a0a0f;
+    color: #e8e8e8;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Animated gradient mesh background */
+  .gradient-mesh {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .gradient-mesh .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.35;
+    animation: drift 20s ease-in-out infinite alternate;
+  }
+  .blob-1 {
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(20, 184, 166, 0.4), transparent 70%);
+    top: -10%; left: -5%;
+    animation-duration: 25s;
+  }
+  .blob-2 {
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.25), transparent 70%);
+    bottom: -15%; right: -10%;
+    animation-duration: 30s;
+    animation-delay: -5s;
+  }
+  .blob-3 {
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(244, 163, 96, 0.15), transparent 70%);
+    top: 40%; left: 50%;
+    animation-duration: 22s;
+    animation-delay: -10s;
+  }
+  .blob-4 {
+    width: 350px; height: 350px;
+    background: radial-gradient(circle, rgba(20, 184, 166, 0.2), transparent 70%);
+    bottom: 10%; left: 20%;
+    animation-duration: 28s;
+    animation-delay: -15s;
+  }
+
+  @keyframes drift {
+    0% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(30px, -40px) scale(1.05); }
+    66% { transform: translate(-20px, 30px) scale(0.95); }
+    100% { transform: translate(40px, 20px) scale(1.02); }
+  }
+
+  /* Layout */
+  .layout {
+    position: relative;
+    z-index: 1;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Glass sidebar toggle */
+  .sidebar-toggle {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 60;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 18px;
+  }
+  .sidebar-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  /* Glass sidebar overlay */
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .sidebar-overlay.open { opacity: 1; pointer-events: auto; }
+  .sidebar-overlay .backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(4px);
+  }
+  .sidebar-panel {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 300px;
+    background: rgba(15, 15, 20, 0.7);
+    backdrop-filter: blur(40px);
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+  }
+  .sidebar-overlay.open .sidebar-panel { transform: translateX(0); }
+
+  .sidebar-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(255, 255, 255, 0.3);
+    margin-bottom: 16px;
+    padding: 0 8px;
+  }
+  .sidebar-item {
+    padding: 12px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+    margin-bottom: 2px;
+  }
+  .sidebar-item:hover { background: rgba(255, 255, 255, 0.05); }
+  .sidebar-item.active { background: rgba(20, 184, 166, 0.08); }
+  .sidebar-item .si-title {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 2px;
+  }
+  .sidebar-item.active .si-title { color: rgba(255, 255, 255, 0.9); }
+  .sidebar-item .si-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.2);
+  }
+
+  /* Messages */
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 48px 24px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    scrollbar-width: none;
+  }
+  .messages::-webkit-scrollbar { display: none; }
+
+  .messages-inner {
+    max-width: 700px;
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* User message — no container, just text */
+  .msg-user {
+    padding: 0 4px;
+    font-size: 15px;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.5);
+    max-width: 520px;
+    align-self: flex-end;
+    text-align: right;
+  }
+
+  /* Assistant message — frosted glass card */
+  .msg-assistant {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 16px;
+    padding: 28px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Subtle refraction shimmer on the card edge */
+  .msg-assistant::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), rgba(20,184,166,0.15), rgba(255,255,255,0.12), transparent);
+  }
+
+  /* Depth levels — older messages more translucent */
+  .msg-assistant.depth-0 {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(30px);
+  }
+  .msg-assistant.depth-1 {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(20px);
+    opacity: 0.85;
+  }
+  .msg-assistant.depth-2 {
+    background: rgba(255, 255, 255, 0.02);
+    backdrop-filter: blur(12px);
+    opacity: 0.7;
+  }
+
+  .msg-assistant h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 14px;
+    letter-spacing: -0.01em;
+  }
+
+  .msg-assistant .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(20, 184, 166, 0.7);
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+
+  .msg-assistant p {
+    font-size: 15px;
+    line-height: 1.75;
+    color: rgba(255, 255, 255, 0.75);
+    margin-bottom: 10px;
+  }
+  .msg-assistant strong { color: rgba(255, 255, 255, 0.95); font-weight: 500; }
+
+  .cv {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+  .cv-dose { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+  .cv-lab { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
+  .cv-vital { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+  .cv-critical { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+
+  .msg-actions {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    display: flex;
+    gap: 8px;
+  }
+  .msg-action-btn {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.35);
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .msg-action-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.6);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  /* Streaming shimmer */
+  .msg-assistant.streaming {
+    overflow: hidden;
+  }
+  .streaming-edge {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(20, 184, 166, 0.5), transparent);
+    animation: edgeShimmer 2s ease-in-out infinite;
+  }
+  @keyframes edgeShimmer {
+    0%, 100% { transform: translateX(-50%); opacity: 0.5; }
+    50% { transform: translateX(50%); opacity: 1; }
+  }
+
+  /* Floating glass composer */
+  .composer-wrap {
+    padding: 0 24px 28px;
+    display: flex;
+    justify-content: center;
+  }
+  .composer {
+    max-width: 700px;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 16px;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  /* Top refraction line */
+  .composer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  }
+  .composer:focus-within {
+    border-color: rgba(20, 184, 166, 0.2);
+    box-shadow: 0 0 30px rgba(20, 184, 166, 0.05);
+  }
+
+  .composer input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.85);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    padding: 14px 16px;
+    outline: none;
+  }
+  .composer input::placeholder { color: rgba(255, 255, 255, 0.2); }
+
+  .composer-tools {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 4px;
+  }
+  .tool-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 16px;
+  }
+  .tool-btn:hover { color: rgba(255, 255, 255, 0.5); background: rgba(255, 255, 255, 0.05); }
+
+  .send-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: rgba(20, 184, 166, 0.8);
+    border: none;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 18px;
+  }
+  .send-btn:hover { background: rgba(20, 184, 166, 0.95); }
+
+  /* Model badge */
+  .model-badge {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 6px 10px;
+  }
+  .model-badge .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #14b8a6;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Gradient mesh background -->
+<div class="gradient-mesh">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+  <div class="blob blob-4"></div>
+</div>
+
+<!-- Model badge -->
+<div class="model-badge">
+  <span class="dot"></span>
+  MedGemma Active
+</div>
+
+<!-- Sidebar toggle -->
+<button class="sidebar-toggle" id="sidebarToggle">&#9776;</button>
+
+<!-- Sidebar overlay -->
+<div class="sidebar-overlay" id="sidebarOverlay">
+  <div class="backdrop" id="sidebarBackdrop"></div>
+  <div class="sidebar-panel">
+    <div class="sidebar-title">Sessions</div>
+    <div class="sidebar-item active">
+      <div class="si-title">55M Chest Pain — STEMI</div>
+      <div class="si-time">2 min ago</div>
+    </div>
+    <div class="sidebar-item">
+      <div class="si-title">Warfarin + Amiodarone</div>
+      <div class="si-time">1 hr ago</div>
+    </div>
+    <div class="sidebar-item">
+      <div class="si-title">Pediatric Amoxicillin</div>
+      <div class="si-time">Yesterday</div>
+    </div>
+    <div class="sidebar-item">
+      <div class="si-title">COPD Exacerbation</div>
+      <div class="si-time">Mar 27</div>
+    </div>
+  </div>
+</div>
+
+<!-- Main layout -->
+<div class="layout">
+  <div class="messages">
+    <div class="messages-inner">
+
+      <!-- User -->
+      <div class="msg-user">
+        55-year-old male, acute chest pain radiating to left arm, diaphoretic. History of HTN and DM2. BP 158/94, HR 102. Differential and workup?
+      </div>
+
+      <!-- Assistant — older, more transparent -->
+      <div class="msg-assistant depth-1">
+        <h3>Differential Diagnosis & Immediate Workup</h3>
+
+        <div class="section-label">Primary Differential</div>
+        <p><strong>Acute Coronary Syndrome (STEMI/NSTEMI)</strong> — highest probability given substernal pain with left arm radiation, diaphoresis, and multiple cardiovascular risk factors. Current vitals: <span class="cv cv-vital">BP 158/94</span>, <span class="cv cv-vital">HR 102</span>.</p>
+        <p>Also consider: aortic dissection (bilateral BP, CT-A), PE (Wells score), tension pneumothorax.</p>
+
+        <div class="section-label">Immediate Orders</div>
+        <p>STAT 12-lead ECG. Troponin serial q3h. CBC, BMP, coags. <span class="cv cv-dose">Aspirin 325mg</span> chewed now. Telemetry, two large-bore IVs, type and screen.</p>
+
+        <div class="msg-actions">
+          <button class="msg-action-btn">Copy</button>
+          <button class="msg-action-btn">Regenerate</button>
+        </div>
+      </div>
+
+      <!-- User -->
+      <div class="msg-user">
+        ECG shows ST elevation in II, III, aVF. Troponin I is 2.4 ng/mL. What's the protocol?
+      </div>
+
+      <!-- Assistant — latest, sharp -->
+      <div class="msg-assistant depth-0 streaming">
+        <h3>Inferior STEMI — Acute Protocol</h3>
+
+        <div class="section-label">Immediate Action</div>
+        <p><strong>Activate cardiac catheterization lab.</strong> Door-to-balloon target: <span class="cv cv-critical">&lt;90 minutes</span>. Troponin I <span class="cv cv-lab">2.4 ng/mL</span> (ref &lt;0.04) confirms significant myocardial injury.</p>
+
+        <div class="section-label">Pharmacotherapy</div>
+        <p><span class="cv cv-dose">Ticagrelor 180mg</span> PO loading. <span class="cv cv-dose">Heparin 60 U/kg</span> IV bolus (max 4,000 U). Continue aspirin. Consider <span class="cv cv-dose">Nitroglycerin 0.4mg SL</span> unless RV involvement suspected.</p>
+
+        <div class="section-label">Critical — RV Involvement</div>
+        <p>Inferior STEMI carries <span class="cv cv-critical">~40% risk</span> of RV involvement. Obtain right-sided V4R lead. If positive: <strong>no nitrates, no diuretics</strong>. Volume resuscitate with <span class="cv cv-dose">NS 250mL</span> boluses.</p>
+
+        <div class="msg-actions">
+          <button class="msg-action-btn">Copy</button>
+          <button class="msg-action-btn">Regenerate</button>
+          <button class="msg-action-btn">/drug Ticagrelor</button>
+        </div>
+
+        <div class="streaming-edge"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="composer-wrap">
+    <div class="composer">
+      <input type="text" placeholder="Ask a follow-up..." autofocus>
+      <div class="composer-tools">
+        <button class="tool-btn" title="Attach image">&#x1F4F7;</button>
+        <button class="tool-btn" title="Commands">&#x2F;</button>
+      </div>
+      <button class="send-btn">&#x2191;</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const toggle = document.getElementById('sidebarToggle');
+  const overlay = document.getElementById('sidebarOverlay');
+  const backdrop = document.getElementById('sidebarBackdrop');
+
+  toggle.addEventListener('click', () => overlay.classList.add('open'));
+  backdrop.addEventListener('click', () => overlay.classList.remove('open'));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') overlay.classList.remove('open');
+  });
+</script>
+</body>
+</html>

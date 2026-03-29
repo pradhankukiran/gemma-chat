@@ -59,6 +59,19 @@
   --content-max-width: 720px;
 
   --radius: 8px;
+
+  /* Artifact layout tokens (light defaults — unused while dark-only) */
+  --bg-root: #ffffff;
+  --surface-elevated: #fafaf9;
+  --accent-dim: rgba(13, 148, 136, 0.1);
+
+  --clinical-critical-bg: rgba(220, 38, 38, 0.08);
+  --clinical-critical-fg: #dc2626;
+  --clinical-critical-border: rgba(220, 38, 38, 0.2);
+
+  --thread-strip-width: 220px;
+  --document-max-width: 720px;
+  --composer-max-width: 640px;
 }
 
 .dark {
@@ -97,6 +110,19 @@
   --clinical-vital-bg: #0c1524;
   --clinical-vital-fg: #93c5fd;
   --clinical-vital-border: #1e3a5f;
+
+  /* Artifact layout tokens */
+  --bg-root: #0a0a0a;
+  --surface-elevated: #111111;
+  --accent-dim: rgba(20, 184, 166, 0.15);
+
+  --clinical-critical-bg: rgba(239, 68, 68, 0.12);
+  --clinical-critical-fg: #f87171;
+  --clinical-critical-border: rgba(239, 68, 68, 0.3);
+
+  --thread-strip-width: 220px;
+  --document-max-width: 720px;
+  --composer-max-width: 640px;
 }
 
 @theme inline {
@@ -139,6 +165,14 @@
   --color-clinical-vital-fg: var(--clinical-vital-fg);
   --color-clinical-vital-border: var(--clinical-vital-border);
 
+  --color-clinical-critical-bg: var(--clinical-critical-bg);
+  --color-clinical-critical-fg: var(--clinical-critical-fg);
+  --color-clinical-critical-border: var(--clinical-critical-border);
+
+  --color-bg-root: var(--bg-root);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-accent-dim: var(--accent-dim);
+
   --radius-sm: 4px;
   --radius-md: var(--radius);
   --radius-lg: 12px;
@@ -150,7 +184,7 @@
     border-color: var(--border-primary);
   }
   body {
-    background: var(--surface-primary);
+    background: var(--bg-root, var(--surface-primary));
     color: var(--ink);
     font-feature-settings: "cv11", "ss01", "ss03";
     -webkit-font-smoothing: antialiased;
@@ -219,4 +253,21 @@
 }
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;
+}
+
+/* ── Thread strip scrollbar hide ── */
+.thread-scroll::-webkit-scrollbar { display: none; }
+.thread-scroll { scrollbar-width: none; }
+
+/* ── Streaming line (artifact document) ── */
+@keyframes streaming-shimmer {
+  0% { opacity: 0.3; transform: scaleX(0.6); }
+  50% { opacity: 1; transform: scaleX(1); }
+  100% { opacity: 0.3; transform: scaleX(0.6); }
+}
+.streaming-line {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  border-radius: 1px;
+  animation: streaming-shimmer 1.5s ease-in-out infinite;
 }

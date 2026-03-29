@@ -119,14 +119,14 @@ export default function Composer({ onSend, busy, value: controlledValue, onChang
   const charRatio = Math.min(value.length / MAX_CHARS, 1)
 
   return (
-    <div className="border-t border-border-primary bg-surface-primary px-4 py-2">
-      <div className="mx-auto max-w-2xl">
+    <div className="fixed bottom-3 left-1/2 z-50 w-[calc(100%-32px)] max-w-[var(--composer-max-width)] -translate-x-1/2 md:bottom-6">
+      <div>
         <div
           className={cls(
-            "relative flex flex-col rounded-lg border transition-colors",
+            "relative flex flex-col rounded-2xl border transition-colors shadow-[0_8px_40px_rgba(0,0,0,0.5)]",
             isFocused
-              ? "border-border-focus bg-surface-primary"
-              : "border-border-primary bg-surface-secondary"
+              ? "border-accent/30 bg-[#111]/90 backdrop-blur-xl"
+              : "border-white/[0.07] bg-[#111]/90 backdrop-blur-xl"
           )}
         >
           {/* Attachments */}
@@ -277,7 +277,7 @@ export default function Composer({ onSend, busy, value: controlledValue, onChang
                 onClick={handleSend}
                 disabled={sending || busy || !hasContent}
                 className={cls(
-                  "inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors",
+                  "inline-flex h-8 w-8 items-center justify-center rounded-xl transition-colors",
                   hasContent
                     ? "bg-accent text-accent-fg hover:opacity-90"
                     : "bg-surface-tertiary text-ink-faint cursor-not-allowed"
@@ -293,8 +293,8 @@ export default function Composer({ onSend, busy, value: controlledValue, onChang
           </div>
         </div>
 
-        <p className="mt-1 text-center text-[11px] text-ink-faint">
-          AI-generated content for clinical reference only. Always verify with primary sources.
+        <p className="mt-1 text-center text-[11px] text-ink-faint opacity-60">
+          AI-generated &middot; verify with primary sources
         </p>
       </div>
     </div>

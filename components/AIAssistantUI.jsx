@@ -1,13 +1,16 @@
 "use client"
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import Sidebar from "./Sidebar"
-import ChatPane from "./ChatPane"
-import ReferencePanel from "./ReferencePanel"
+import { AnimatePresence, motion } from "framer-motion"
+import { List } from "lucide-react"
+import ThreadStrip from "./ThreadStrip"
+import DocumentArea from "./DocumentArea"
+import Composer from "./Composer"
+import SearchModal from "./SearchModal"
+import { extractTurns } from "./utils"
 import { searchDrugLabels, searchAdverseEvents, searchPubMed, searchICD11, searchRxNorm } from "../lib/medical-apis"
 
 const GENERATION_DEFAULTS = { max_new_tokens: 512, temperature: 0.7, top_p: 0.95 }
-const DEFAULT_COLLAPSED = { pinned: true, recent: false }
 const STORAGE_KEY_CONVERSATIONS = "medgemma-conversations"
 const STORAGE_KEY_SELECTED = "medgemma-selectedId"
 const SAVE_DEBOUNCE_MS = 400
@@ -20,6 +23,7 @@ export default function AIAssistantUI() {
   const streamingRef = useRef(false)
   const [prefsLoaded, setPrefsLoaded] = useState(false)
 
+  // ── Persistence ──
   const saveConversations = useCallback((convs, selId) => {
     clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
@@ -32,7 +36,7 @@ export default function AIAssistantUI() {
         localStorage.setItem(STORAGE_KEY_SELECTED, selId || "")
       } catch (e) {
         if (e?.name === "QuotaExceededError") {
-          console.warn("localStorage quota exceeded. Conversations may not be fully saved.")
+          console.warn("localStorage quota exceeded.")
         } else {
           console.warn("Failed to persist conversations:", e)
         }
@@ -40,52 +44,29 @@ export default function AIAssistantUI() {
     }, SAVE_DEBOUNCE_MS)
   }, [])
 
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState(DEFAULT_COLLAPSED)
-  useEffect(() => {
-    if (!prefsLoaded) return
-    try {
-      localStorage.setItem("sidebar-collapsed", JSON.stringify(collapsed))
-    } catch (e) {
-      console.warn("Failed to persist sidebar collapsed state:", e)
-    }
-  }, [collapsed, prefsLoaded])
+  // ── State ──
+  const [conversations, setConversations] = useState([])
+  const conversationsRef = useRef(conversations)
+  useEffect(() => { conversationsRef.current = conversations }, [conversations])
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [selectedId, setSelectedId] = useState(null)
+  const [activeTurnIndex, setActiveTurnIndex] = useState(null)
+  const [showSearchModal, setShowSearchModal] = useState(false)
+  const [mobileThreadOpen, setMobileThreadOpen] = useState(false)
+  const [composerValue, setComposerValue] = useState("")
+  const [busy, setBusy] = useState(false)
+  const searchRef = useRef(null)
 
-  const [referencePanel, setReferencePanel] = useState({
-    open: false,
-    activeTab: "drug",
-    data: {},
-    query: "",
-  })
-
+  // ── Reference search (kept for slash commands & MessageActions) ──
   const handleReferenceSearch = useCallback(async (type, query) => {
     if (!query?.trim()) return
-
-    const tabMap = { drug: "drug", evidence: "evidence", icd: "icd", adverse: "adverse" }
-    const tab = tabMap[type] || "drug"
-
-    setReferencePanel((prev) => ({
-      ...prev,
-      open: true,
-      activeTab: tab,
-      query: query.trim(),
-      data: { ...prev.data, [tab]: { loading: true, results: null, error: null } },
-    }))
-
+    // For now, reference searches still work via slash commands in composer
+    // The data flows into the console/future inline cards
     try {
       let result
       if (type === "drug") {
-        const [labels, rxnorm] = await Promise.all([
-          searchDrugLabels(query),
-          searchRxNorm(query),
-        ])
-        if (labels.error && rxnorm.error) {
-          result = { error: labels.error }
-        } else {
-          result = { results: labels.results || [], rxNorm: rxnorm }
-        }
+        const [labels, rxnorm] = await Promise.all([searchDrugLabels(query), searchRxNorm(query)])
+        result = labels.error && rxnorm.error ? { error: labels.error } : { results: labels.results || [], rxNorm: rxnorm }
       } else if (type === "evidence") {
         result = await searchPubMed(query)
       } else if (type === "icd") {
@@ -93,39 +74,14 @@ export default function AIAssistantUI() {
       } else if (type === "adverse") {
         result = await searchAdverseEvents(query)
       }
-
-      setReferencePanel((prev) => ({
-        ...prev,
-        data: { ...prev.data, [tab]: { ...result, loading: false } },
-      }))
+      console.log(`Reference search [${type}]:`, result)
     } catch (err) {
-      setReferencePanel((prev) => ({
-        ...prev,
-        data: { ...prev.data, [tab]: { error: err.message, loading: false } },
-      }))
+      console.warn("Reference search failed:", err)
     }
   }, [])
 
+  // ── Load persisted state ──
   useEffect(() => {
-    if (!prefsLoaded) return
-    try {
-      localStorage.setItem("sidebar-collapsed-state", JSON.stringify(sidebarCollapsed))
-    } catch (e) {
-      console.warn("Failed to persist sidebar collapsed state:", e)
-    }
-  }, [sidebarCollapsed, prefsLoaded])
-
-  useEffect(() => {
-    try {
-      const rawCollapsed = localStorage.getItem("sidebar-collapsed")
-      if (rawCollapsed) setCollapsed(JSON.parse(rawCollapsed))
-      const rawSidebar = localStorage.getItem("sidebar-collapsed-state")
-      if (rawSidebar) setSidebarCollapsed(JSON.parse(rawSidebar))
-    } catch (e) {
-      console.warn("Failed to load sidebar preferences:", e)
-    }
-
-    // Load persisted conversations
     let loadedConversations = []
     let loadedSelectedId = null
     try {
@@ -155,6 +111,7 @@ export default function AIAssistantUI() {
     setPrefsLoaded(true)
   }, [])
 
+  // ── Warmup ──
   useEffect(() => {
     if (warmupRef.current) return
     warmupRef.current = true
@@ -173,15 +130,13 @@ export default function AIAssistantUI() {
       body: JSON.stringify(payload),
       signal: controller.signal,
     })
-      .catch((e) => { if (e?.name !== "AbortError") console.warn("Warmup request failed:", e) })
+      .catch((e) => { if (e?.name !== "AbortError") console.warn("Warmup failed:", e) })
       .finally(() => clearTimeout(timeout))
 
-    return () => {
-      clearTimeout(timeout)
-      controller.abort()
-    }
+    return () => { clearTimeout(timeout); controller.abort() }
   }, [apiBase])
 
+  // ── Cleanup ──
   useEffect(() => {
     return () => {
       activeRequestRef.current?.controller?.abort()
@@ -189,56 +144,32 @@ export default function AIAssistantUI() {
     }
   }, [])
 
-  const [conversations, setConversations] = useState([])
-  const conversationsRef = useRef(conversations)
-  useEffect(() => {
-    conversationsRef.current = conversations
-  }, [conversations])
-
-  const [selectedId, setSelectedId] = useState(null)
-
+  // ── Auto-save ──
   useEffect(() => {
     if (!prefsLoaded) return
     if (streamingRef.current) return
     saveConversations(conversations, selectedId)
   }, [conversations, selectedId, prefsLoaded, saveConversations])
 
-  const [query, setQuery] = useState("")
-  const searchRef = useRef(null)
-
-
+  // ── Keyboard shortcuts ──
   useEffect(() => {
     const onKey = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "n") {
         e.preventDefault()
         createNewChat()
       }
-      if (!e.metaKey && !e.ctrlKey && e.key === "/") {
-        const tag = document.activeElement?.tagName?.toLowerCase()
-        if (tag !== "input" && tag !== "textarea") {
-          e.preventDefault()
-          searchRef.current?.focus()
-        }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault()
+        setShowSearchModal((v) => !v)
       }
-      if (e.key === "Escape" && sidebarOpen) setSidebarOpen(false)
+      if (e.key === "Escape" && showSearchModal) setShowSearchModal(false)
+      if (e.key === "Escape" && mobileThreadOpen) setMobileThreadOpen(false)
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [sidebarOpen, conversations])
+  }, [showSearchModal, conversations])
 
-  const filtered = useMemo(() => {
-    if (!query.trim()) return conversations
-    const q = query.toLowerCase()
-    return conversations.filter((c) => c.title.toLowerCase().includes(q) || (c.preview || "").toLowerCase().includes(q))
-  }, [conversations, query])
-
-  const pinned = filtered.filter((c) => c.pinned).sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
-
-  const recent = filtered
-    .filter((c) => !c.pinned)
-    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
-    .slice(0, 10)
-
+  // ── Conversation CRUD ──
   function togglePin(id) {
     setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, pinned: !c.pinned } : c)))
   }
@@ -252,9 +183,7 @@ export default function AIAssistantUI() {
   }
 
   function renameConversation(id, newTitle) {
-    setConversations((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, title: newTitle } : c))
-    )
+    setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, title: newTitle } : c)))
   }
 
   function createNewChat() {
@@ -270,25 +199,23 @@ export default function AIAssistantUI() {
     }
     setConversations((prev) => [item, ...prev])
     setSelectedId(id)
-    setSidebarOpen(false)
+    setActiveTurnIndex(null)
+    setShowSearchModal(false)
   }
 
-
+  // ── Image upload ──
   async function uploadImages(files) {
     const formData = new FormData()
     files.forEach((file) => formData.append("files", file))
     const res = await fetch("/api/blob", { method: "POST", body: formData })
-    if (!res.ok) {
-      throw new Error(`Image upload failed: ${res.status}`)
-    }
+    if (!res.ok) throw new Error(`Image upload failed: ${res.status}`)
     const data = await res.json()
     const urls = Array.isArray(data?.files) ? data.files.map((file) => file.url).filter(Boolean) : []
-    if (!urls.length) {
-      throw new Error("No image URLs returned from upload")
-    }
+    if (!urls.length) throw new Error("No image URLs returned from upload")
     return urls
   }
 
+  // ── Send message ──
   async function sendMessage(convId, content, files = []) {
     if (!content.trim()) return
     const now = new Date().toISOString()
@@ -313,20 +240,14 @@ export default function AIAssistantUI() {
       prev.map((c) => {
         if (c.id !== convId) return c
         const msgs = [...(c.messages || []), userMsg, assistantMsg]
-        return {
-          ...c,
-          messages: msgs,
-          updatedAt: now,
-          messageCount: msgs.length,
-          preview: content.slice(0, 80),
-        }
+        return { ...c, messages: msgs, updatedAt: now, messageCount: msgs.length, preview: content.slice(0, 80) }
       }),
     )
 
-    if (activeRequestRef.current?.controller) {
-      activeRequestRef.current.controller.abort()
-    }
+    // Snap to latest turn
+    setActiveTurnIndex(null)
 
+    if (activeRequestRef.current?.controller) activeRequestRef.current.controller.abort()
     const controller = new AbortController()
     activeRequestRef.current = { controller, convId, assistantId }
 
@@ -371,9 +292,7 @@ export default function AIAssistantUI() {
             return { ...c, messages: msgs }
           }),
         )
-        if (activeRequestRef.current?.assistantId === assistantId) {
-          activeRequestRef.current = null
-        }
+        if (activeRequestRef.current?.assistantId === assistantId) activeRequestRef.current = null
         return
       }
     }
@@ -393,9 +312,7 @@ export default function AIAssistantUI() {
         signal: controller.signal,
       })
 
-      if (!res.ok || !res.body) {
-        throw new Error(`Streaming request failed: ${res.status}`)
-      }
+      if (!res.ok || !res.body) throw new Error(`Streaming request failed: ${res.status}`)
 
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
@@ -423,11 +340,9 @@ export default function AIAssistantUI() {
               updateAssistant(fullText, false)
             }
           }
-
           boundary = buffer.indexOf("\n\n")
         }
       }
-
       updateAssistant(fullText, true)
     } catch (err) {
       if (err?.name === "AbortError") {
@@ -437,9 +352,7 @@ export default function AIAssistantUI() {
       }
     } finally {
       streamingRef.current = false
-      if (activeRequestRef.current?.assistantId === assistantId) {
-        activeRequestRef.current = null
-      }
+      if (activeRequestRef.current?.assistantId === assistantId) activeRequestRef.current = null
     }
   }
 
@@ -451,11 +364,7 @@ export default function AIAssistantUI() {
         const msgs = (c.messages || []).map((m) =>
           m.id === messageId ? { ...m, content: newContent, editedAt: now } : m,
         )
-        return {
-          ...c,
-          messages: msgs,
-          preview: msgs[msgs.length - 1]?.content?.slice(0, 80) || c.preview,
-        }
+        return { ...c, messages: msgs, preview: msgs[msgs.length - 1]?.content?.slice(0, 80) || c.preview }
       }),
     )
   }
@@ -471,54 +380,140 @@ export default function AIAssistantUI() {
     sendMessage(convId, msg.content)
   }
 
+  // ── Auto-create first chat ──
   useEffect(() => {
-    if (prefsLoaded && !selectedId && conversations.length === 0) {
-      createNewChat()
-    }
+    if (prefsLoaded && !selectedId && conversations.length === 0) createNewChat()
   }, [prefsLoaded])
 
+  // ── Derived state ──
   const selected = conversations.find((c) => c.id === selectedId) || null
+  const messages = selected?.messages || []
+  const turns = useMemo(() => extractTurns(messages), [messages])
+  const currentTurn = turns.length > 0
+    ? (activeTurnIndex !== null ? turns[activeTurnIndex] : turns[turns.length - 1])
+    : null
+  const isLatestTurn = activeTurnIndex === null || activeTurnIndex === turns.length - 1
+  const isStreaming = isLatestTurn && streamingRef.current && currentTurn?.assistantMsg && !currentTurn.assistantMsg.content?.trim()
+
+  const handleSend = async (text, files = []) => {
+    if (!text.trim() || !selected) return
+    setBusy(true)
+    setComposerValue("")
+    try {
+      await sendMessage(selected.id, text, files)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleSelectConversation = (id) => {
+    setSelectedId(id)
+    setActiveTurnIndex(null)
+    setShowSearchModal(false)
+  }
+
+  const hasMessages = turns.length > 0
 
   return (
-    <div className="flex h-screen w-full bg-surface-primary text-ink">
-      <div className="flex min-h-0 flex-1">
-        <Sidebar
-          open={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
-          onOpen={() => setSidebarOpen(true)}
-          collapsed={collapsed}
-          setCollapsed={setCollapsed}
-          sidebarCollapsed={sidebarCollapsed}
-          setSidebarCollapsed={setSidebarCollapsed}
-          conversations={conversations}
-          pinned={pinned}
-          recent={recent}
-          selectedId={selectedId}
-          onSelect={(id) => setSelectedId(id)}
-          togglePin={togglePin}
-          onDeleteConversation={deleteConversation}
-          onRenameConversation={renameConversation}
-          query={query}
-          setQuery={setQuery}
-          searchRef={searchRef}
-          createNewChat={createNewChat}
-        />
+    <div className="flex h-screen w-full" style={{ background: "#0a0a0a", color: "var(--ink)" }}>
+      {/* Mobile thread toggle — only when there are messages */}
+      {hasMessages && (
+        <button
+          onClick={() => setMobileThreadOpen(true)}
+          className="fixed left-3 top-3 z-30 flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.06] bg-[#111]/80 text-white/30 backdrop-blur-lg transition-colors hover:text-white/60 md:hidden"
+        >
+          <List className="h-4 w-4" />
+        </button>
+      )}
 
-        <main className="relative flex min-w-0 flex-1 flex-col pl-14 md:pl-0">
-          <ChatPane
-            conversation={selected}
-            onSend={(content, files) => selected && sendMessage(selected.id, content, files)}
-            onEditMessage={(messageId, newContent) => selected && editMessage(selected.id, messageId, newContent)}
-            onResendMessage={(messageId, content) => selected && resendMessage(selected.id, messageId, content)}
-            onReferenceSearch={handleReferenceSearch}
+      {/* Mobile thread overlay */}
+      <AnimatePresence>
+        {mobileThreadOpen && (
+          <>
+            <motion.div
+              key="thread-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="fixed inset-0 z-40 bg-black/50 md:hidden"
+              onClick={() => setMobileThreadOpen(false)}
+            />
+            <motion.div
+              key="thread-panel"
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="fixed inset-y-0 left-0 z-50 md:hidden"
+            >
+              <ThreadStrip
+                turns={turns}
+                activeTurnIndex={activeTurnIndex}
+                onSelectTurn={(index) => { setActiveTurnIndex(index); setMobileThreadOpen(false) }}
+                onOpenCommandPalette={() => { setShowSearchModal(true); setMobileThreadOpen(false) }}
+                onNewChat={() => { createNewChat(); setMobileThreadOpen(false) }}
+              />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Thread Strip — desktop, only when there are messages */}
+      {hasMessages && (
+        <div className="hidden md:block">
+          <ThreadStrip
+            turns={turns}
+            activeTurnIndex={activeTurnIndex}
+            onSelectTurn={setActiveTurnIndex}
+            onOpenCommandPalette={() => setShowSearchModal(true)}
+            onNewChat={createNewChat}
           />
-        </main>
+        </div>
+      )}
 
-        <ReferencePanel
-          referencePanel={referencePanel}
-          setReferencePanel={setReferencePanel}
-        />
-      </div>
+      {/* Cmd+K hint — top right, when on welcome screen */}
+      {!hasMessages && (
+        <div className="fixed right-5 top-5 z-10 flex items-center gap-1.5 font-mono text-[11px] text-white/20">
+          <kbd className="rounded border border-white/[0.08] bg-white/[0.04] px-1.5 py-0.5 text-[10px]">Cmd</kbd>
+          <span>+</span>
+          <kbd className="rounded border border-white/[0.08] bg-white/[0.04] px-1.5 py-0.5 text-[10px]">K</kbd>
+          <span className="ml-1">sessions</span>
+        </div>
+      )}
+
+      {/* Document Area */}
+      <DocumentArea
+        turn={hasMessages ? currentTurn : null}
+        isStreaming={busy}
+        isLatestTurn={isLatestTurn}
+        onEditMessage={(messageId, newContent) => selected && editMessage(selected.id, messageId, newContent)}
+        onResendMessage={(messageId, content) => selected && resendMessage(selected.id, messageId, content)}
+        onReferenceSearch={handleReferenceSearch}
+        onSend={handleSend}
+        composerValue={composerValue}
+        setComposerValue={setComposerValue}
+      />
+
+      {/* Floating Composer */}
+      <Composer
+        onSend={handleSend}
+        busy={busy}
+        value={composerValue}
+        onChange={setComposerValue}
+        onReferenceSearch={handleReferenceSearch}
+      />
+
+      {/* Command Palette */}
+      <SearchModal
+        isOpen={showSearchModal}
+        onClose={() => setShowSearchModal(false)}
+        conversations={conversations}
+        selectedId={selectedId}
+        onSelect={handleSelectConversation}
+        togglePin={togglePin}
+        createNewChat={createNewChat}
+      />
     </div>
   )
 }

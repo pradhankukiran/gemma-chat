@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thread Canvas — MedGemma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0c0c0c;
+    --card-bg: #141414;
+    --card-border: rgba(255, 255, 255, 0.06);
+    --card-border-active: rgba(20, 184, 166, 0.3);
+    --text: #e2e2e2;
+    --text-secondary: #999;
+    --text-muted: #555;
+    --accent: #14b8a6;
+    --accent-dim: rgba(20, 184, 166, 0.1);
+    --connector: rgba(255, 255, 255, 0.08);
+  }
+
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Minimap bar */
+  .minimap-bar {
+    height: 48px;
+    border-bottom: 1px solid var(--card-border);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 16px;
+    flex-shrink: 0;
+    background: var(--bg);
+  }
+  .minimap-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    flex-shrink: 0;
+  }
+  .minimap-nodes {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+  }
+  .minimap-node {
+    width: 32px;
+    height: 20px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--card-border);
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .minimap-node:hover { border-color: var(--text-muted); }
+  .minimap-node.active { border-color: var(--accent); background: var(--accent-dim); }
+  .minimap-connector {
+    width: 12px;
+    height: 1px;
+    background: var(--connector);
+  }
+  .minimap-branch {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .minimap-branch .branch-line {
+    width: 1px;
+    height: 8px;
+    background: var(--connector);
+    margin-left: 15px;
+  }
+  .minimap-branch-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .minimap-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .minimap-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: none;
+    border: 1px solid var(--card-border);
+    color: var(--text-muted);
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .minimap-btn:hover { border-color: var(--text-muted); color: var(--text-secondary); }
+
+  /* Canvas area */
+  .canvas-area {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    display: flex;
+    align-items: stretch;
+    scroll-behavior: smooth;
+    padding: 24px;
+    gap: 0;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.06) transparent;
+  }
+
+  /* Card */
+  .card-column {
+    flex-shrink: 0;
+    width: 420px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* Connector between cards */
+  .card-column + .card-column::before {
+    content: '';
+    position: absolute;
+    left: -20px;
+    top: 50%;
+    width: 40px;
+    height: 1px;
+    background: var(--connector);
+  }
+  .card-column { margin-right: 40px; }
+
+  .card {
+    flex: 1;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: rgba(255, 255, 255, 0.1); }
+  .card.active { border-color: var(--card-border-active); }
+  .card.pinned {
+    box-shadow: 0 0 0 1px var(--accent), 0 0 20px var(--accent-dim);
+  }
+
+  /* Card header */
+  .card-header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--card-border);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+  .card-turn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+  .card-query {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    max-width: 320px;
+  }
+  .card-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .card-action-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.15s;
+  }
+  .card-action-btn:hover { border-color: var(--text-muted); color: var(--text-secondary); background: rgba(255,255,255,0.03); }
+  .card-action-btn.pin-active { border-color: var(--accent); color: var(--accent); }
+
+  /* Card body */
+  .card-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.04) transparent;
+  }
+
+  .card-body h3 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-bottom: 12px;
+    color: #fff;
+  }
+  .card-body h4 {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+  .card-body p {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+  }
+  .card-body strong { color: var(--text); font-weight: 500; }
+
+  .cv {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .cv-dose { background: rgba(34, 197, 94, 0.12); color: #4ade80; }
+  .cv-lab { background: rgba(168, 85, 247, 0.12); color: #c084fc; }
+  .cv-vital { background: rgba(59, 130, 246, 0.12); color: #60a5fa; }
+  .cv-critical { background: rgba(239, 68, 68, 0.12); color: #f87171; }
+
+  /* Card footer */
+  .card-footer {
+    padding: 10px 20px;
+    border-top: 1px solid var(--card-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+  .branch-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: none;
+    border: 1px solid var(--card-border);
+    color: var(--text-muted);
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s;
+  }
+  .branch-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Active card composer */
+  .card-composer {
+    flex-shrink: 0;
+    width: 420px;
+    margin-right: 40px;
+    display: flex;
+    align-items: center;
+    position: relative;
+  }
+  .card-composer::before {
+    content: '';
+    position: absolute;
+    left: -20px;
+    top: 50%;
+    width: 40px;
+    height: 1px;
+    background: var(--connector);
+  }
+
+  .composer-card {
+    width: 100%;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    transition: border-color 0.2s;
+  }
+  .composer-card:focus-within { border-color: var(--card-border-active); }
+
+  .composer-card textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    resize: none;
+    outline: none;
+    min-height: 80px;
+  }
+  .composer-card textarea::placeholder { color: var(--text-muted); }
+
+  .composer-bottom {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12px;
+  }
+  .composer-hint {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .composer-send {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .composer-send:hover { opacity: 0.85; }
+
+  /* Branch indicator */
+  .branch-indicator {
+    position: absolute;
+    left: 50%;
+    bottom: -20px;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .branch-line-vert {
+    width: 1px;
+    height: 16px;
+    background: var(--connector);
+  }
+  .branch-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+</style>
+</head>
+<body>
+
+<!-- Minimap -->
+<div class="minimap-bar">
+  <span class="minimap-label">Thread Map</span>
+  <div class="minimap-nodes">
+    <div class="minimap-node"></div>
+    <div class="minimap-connector"></div>
+    <div class="minimap-node"></div>
+    <div class="minimap-connector"></div>
+    <div class="minimap-node active"></div>
+    <div class="minimap-connector"></div>
+    <div class="minimap-node" style="opacity: 0.5; border-style: dashed;"></div>
+    <!-- Branch visualization -->
+    <div style="margin-left: -56px; margin-top: 28px; position: absolute; display: flex; align-items: center;">
+    </div>
+  </div>
+  <div class="minimap-actions">
+    <button class="minimap-btn">Compare</button>
+    <button class="minimap-btn">+ Branch</button>
+    <button class="minimap-btn">Cmd+N New</button>
+  </div>
+</div>
+
+<!-- Canvas -->
+<div class="canvas-area">
+
+  <!-- Card 1 -->
+  <div class="card-column">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-turn">Turn 1</div>
+          <div class="card-query">55M, acute chest pain radiating to left arm, diaphoretic. HTN, DM2.</div>
+        </div>
+        <div class="card-actions">
+          <button class="card-action-btn" title="Pin">&#x1F4CC;</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <h3>ACS is the leading diagnosis</h3>
+        <h4>Top Differentials</h4>
+        <p><strong>1. Acute Coronary Syndrome</strong> — Classic presentation with substernal pain, radiation, diaphoresis, and cardiovascular risk factors at <span class="cv cv-vital">BP 158/94</span>, <span class="cv cv-vital">HR 102</span>.</p>
+        <p><strong>2. Aortic Dissection</strong> — Rule out with bilateral BP check and CT angiography if suspicion persists.</p>
+        <h4>Immediate Workup</h4>
+        <p>STAT 12-lead ECG. Troponin I/T serial q3h. CBC, BMP, PT/INR. <span class="cv cv-dose">Aspirin 325mg</span> chewed immediately. Continuous telemetry.</p>
+      </div>
+      <div class="card-footer">
+        <span>847 tok / 2.1s</span>
+        <button class="branch-btn">
+          <span>&#x2934;</span> Branch from here
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 2 -->
+  <div class="card-column">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-turn">Turn 2</div>
+          <div class="card-query">ECG: ST elevation II, III, aVF. Troponin I 2.4 ng/mL.</div>
+        </div>
+        <div class="card-actions">
+          <button class="card-action-btn" title="Pin">&#x1F4CC;</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <h3>Inferior STEMI confirmed</h3>
+        <h4>Activate Cath Lab</h4>
+        <p>Door-to-balloon target <span class="cv cv-critical">&lt;90 minutes</span>. Troponin <span class="cv cv-lab">2.4 ng/mL</span> confirms significant myocardial necrosis.</p>
+        <h4>Pharmacotherapy</h4>
+        <p><span class="cv cv-dose">Ticagrelor 180mg</span> PO loading dose. <span class="cv cv-dose">Heparin 60 U/kg</span> IV bolus (max 4000 U). Continue aspirin.</p>
+        <h4>RV Involvement</h4>
+        <p>Obtain V4R. If positive: avoid nitrates, avoid diuretics. Volume resuscitate with <span class="cv cv-dose">NS 250mL</span> boluses PRN.</p>
+      </div>
+      <div class="card-footer">
+        <span>1,204 tok / 3.8s</span>
+        <button class="branch-btn">
+          <span>&#x2934;</span> Branch from here
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 3 — Active -->
+  <div class="card-column">
+    <div class="card active">
+      <div class="card-header">
+        <div>
+          <div class="card-turn">Turn 3</div>
+          <div class="card-query">Patient CrCl is 35 mL/min. Adjust heparin?</div>
+        </div>
+        <div class="card-actions">
+          <button class="card-action-btn pin-active" title="Pinned">&#x1F4CC;</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <h3>Renal dose adjustment required</h3>
+        <h4>Heparin Adjustment</h4>
+        <p>With CrCl <span class="cv cv-lab">35 mL/min</span>, UFH is still preferred over LMWH (enoxaparin has unpredictable kinetics in renal impairment).</p>
+        <p><strong>Adjusted protocol:</strong> Reduce initial bolus to <span class="cv cv-dose">50 U/kg</span> IV. Maintenance infusion at <span class="cv cv-dose">10 U/kg/hr</span>. Check aPTT at 6 hours, target <span class="cv cv-lab">50–70 seconds</span>.</p>
+        <h4>P2Y12 Inhibitor</h4>
+        <p><strong>Ticagrelor does not require renal adjustment</strong> — proceed with <span class="cv cv-dose">180mg</span> loading as planned. No dose modification needed for maintenance <span class="cv cv-dose">90mg BID</span>.</p>
+        <h4>Post-PCI Considerations</h4>
+        <p>Monitor for contrast-induced nephropathy. Pre-hydrate with <span class="cv cv-dose">NS 1 mL/kg/hr</span> starting 6–12h pre-procedure. Hold metformin for 48h post-contrast.</p>
+      </div>
+      <div class="card-footer">
+        <span>986 tok / 2.9s</span>
+        <button class="branch-btn">
+          <span>&#x2934;</span> Branch from here
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Composer card -->
+  <div class="card-composer">
+    <div class="composer-card">
+      <textarea placeholder="Continue the conversation...&#10;&#10;Ask a follow-up, or branch from any previous card." rows="4" autofocus></textarea>
+      <div class="composer-bottom">
+        <span class="composer-hint">Enter to send</span>
+        <button class="composer-send">Send</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

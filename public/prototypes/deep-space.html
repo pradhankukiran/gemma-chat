@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deep Space — MedGemma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --glow-teal: rgba(20, 184, 166, 0.12);
+    --glow-teal-bright: rgba(20, 184, 166, 0.25);
+    --text-primary: #e8e8e8;
+    --text-secondary: #9a9a9a;
+    --text-muted: #5a5a5a;
+    --surface-card: rgba(255, 255, 255, 0.03);
+    --border-card: rgba(255, 255, 255, 0.06);
+  }
+
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: #000;
+    color: var(--text-primary);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Messages area */
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 60px 24px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    scrollbar-width: none;
+  }
+  .messages::-webkit-scrollbar { display: none; }
+
+  /* User message — just text, right-aligned */
+  .msg-user {
+    align-self: flex-end;
+    max-width: 560px;
+    text-align: right;
+    color: var(--text-secondary);
+    font-size: 15px;
+    line-height: 1.6;
+    padding-right: 8px;
+  }
+  .msg-user .timestamp {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  /* Assistant message — glowing card */
+  .msg-assistant {
+    align-self: flex-start;
+    max-width: 680px;
+    width: 100%;
+    margin-left: 40px;
+  }
+
+  .msg-card {
+    background: var(--surface-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    padding: 28px 32px;
+    box-shadow:
+      0 0 30px var(--glow-teal),
+      0 0 60px rgba(20, 184, 166, 0.04);
+    position: relative;
+    font-size: 15px;
+    line-height: 1.75;
+    color: var(--text-primary);
+    transition: box-shadow 0.6s ease;
+  }
+  .msg-card:hover {
+    box-shadow:
+      0 0 40px var(--glow-teal-bright),
+      0 0 80px rgba(20, 184, 166, 0.06);
+  }
+
+  .msg-card h3 {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(20, 184, 166, 0.7);
+    margin-bottom: 16px;
+  }
+
+  .msg-card p { margin-bottom: 12px; }
+  .msg-card p:last-child { margin-bottom: 0; }
+
+  .msg-card strong {
+    color: #fff;
+    font-weight: 500;
+  }
+
+  .msg-card .clinical-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+  .cv-dose { background: rgba(34, 197, 94, 0.12); color: #4ade80; }
+  .cv-lab { background: rgba(168, 85, 247, 0.12); color: #c084fc; }
+  .cv-vital { background: rgba(59, 130, 246, 0.12); color: #60a5fa; }
+
+  .msg-card .meta {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .msg-card .meta .copy-btn {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--text-muted);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .msg-card .meta .copy-btn:hover {
+    border-color: rgba(20, 184, 166, 0.3);
+    color: var(--text-secondary);
+  }
+
+  /* Streaming glow pulse */
+  .msg-card.streaming {
+    animation: glowPulse 2s ease-in-out infinite;
+  }
+  @keyframes glowPulse {
+    0%, 100% { box-shadow: 0 0 30px var(--glow-teal), 0 0 60px rgba(20, 184, 166, 0.04); }
+    50% { box-shadow: 0 0 50px var(--glow-teal-bright), 0 0 100px rgba(20, 184, 166, 0.08); }
+  }
+
+  /* Streaming cursor line */
+  .streaming-line {
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(20, 184, 166, 0.6), transparent);
+    border-radius: 1px;
+    margin-top: 16px;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+  @keyframes shimmer {
+    0% { opacity: 0.3; transform: scaleX(0.6); }
+    50% { opacity: 1; transform: scaleX(1); }
+    100% { opacity: 0.3; transform: scaleX(0.6); }
+  }
+
+  /* Composer — floating line */
+  .composer-area {
+    padding: 24px 24px 32px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .composer {
+    max-width: 680px;
+    width: 100%;
+    position: relative;
+  }
+
+  .composer input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    padding: 12px 0;
+    outline: none;
+    transition: border-color 0.3s;
+  }
+  .composer input::placeholder {
+    color: var(--text-muted);
+  }
+  .composer input:focus {
+    border-bottom-color: rgba(20, 184, 166, 0.4);
+  }
+
+  .composer .hint {
+    position: absolute;
+    right: 0;
+    bottom: -20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .composer input:focus ~ .hint { opacity: 1; }
+
+  /* Cmd+K hint */
+  .cmd-hint {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .cmd-hint kbd {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+  }
+
+  /* Command palette overlay */
+  .palette-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 20vh;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+  }
+  .palette-overlay.open { opacity: 1; pointer-events: auto; }
+
+  .palette {
+    width: 480px;
+    background: rgba(20, 20, 20, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 0 60px rgba(0,0,0,0.5);
+  }
+  .palette input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    padding: 16px 20px;
+    outline: none;
+  }
+  .palette-items { padding: 8px; }
+  .palette-item {
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.1s;
+  }
+  .palette-item:hover, .palette-item.active {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+  }
+  .palette-item .time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* Scrollbar for messages */
+  .messages { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.06) transparent; }
+</style>
+</head>
+<body>
+
+<div class="cmd-hint"><kbd>Cmd</kbd>+<kbd>K</kbd> sessions</div>
+
+<div class="messages">
+  <!-- User message -->
+  <div class="msg-user">
+    <div class="timestamp">2:34 PM</div>
+    55-year-old male presenting with acute chest pain radiating to the left arm, diaphoretic, history of hypertension and type 2 diabetes. BP 158/94, HR 102. What's the differential and immediate workup?
+  </div>
+
+  <!-- Assistant response — glowing card -->
+  <div class="msg-assistant">
+    <div class="msg-card">
+      <h3>Differential Diagnosis & Workup</h3>
+      <p><strong>High priority differentials</strong> given the presentation of acute chest pain with radiation, diaphoresis, and cardiovascular risk factors:</p>
+      <p><strong>1. Acute Coronary Syndrome (STEMI/NSTEMI)</strong> — Most likely given classic presentation. The combination of substernal pain with left arm radiation, diaphoresis, HTN, DM2, and tachycardia at <span class="clinical-value cv-vital">HR 102 bpm</span> strongly suggests ACS.</p>
+      <p><strong>2. Aortic Dissection</strong> — Must rule out given HTN history and acute onset. Check for BP differential between arms. Current BP <span class="clinical-value cv-vital">158/94 mmHg</span>.</p>
+      <p><strong>3. Pulmonary Embolism</strong> — Consider given tachycardia and acute dyspnea if present.</p>
+      <p><strong>Immediate workup:</strong></p>
+      <p>STAT 12-lead ECG, Troponin I/T (serial q3h), CBC, BMP, PT/INR, Chest X-ray, and Type & Screen. Administer <span class="clinical-value cv-dose">Aspirin 325mg</span> chewable immediately if no contraindications. Establish IV access, continuous telemetry, and supplemental O2 if SpO2 &lt;94%.</p>
+
+      <div class="meta">
+        <button class="copy-btn">Copy</button>
+        <span>847 tokens</span>
+        <span>2.1s</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- User follow-up -->
+  <div class="msg-user">
+    <div class="timestamp">2:35 PM</div>
+    ECG shows ST elevation in leads II, III, aVF. Troponin I is 2.4 ng/mL. What's the protocol?
+  </div>
+
+  <!-- Streaming response -->
+  <div class="msg-assistant">
+    <div class="msg-card streaming">
+      <h3>STEMI Management — Inferior MI</h3>
+      <p><strong>ST elevation in II, III, aVF</strong> confirms inferior STEMI. Troponin I at <span class="clinical-value cv-lab">2.4 ng/mL</span> (elevated, reference &lt;0.04) confirms myocardial injury.</p>
+      <p><strong>Activate cardiac catheterization lab immediately.</strong> Door-to-balloon target: <span class="clinical-value cv-vital">&lt;90 minutes</span>.</p>
+      <p><strong>Acute management:</strong></p>
+      <p>Continue <span class="clinical-value cv-dose">Aspirin 325mg</span> already administered. Add <span class="clinical-value cv-dose">Ticagrelor 180mg</span> loading dose (or Clopidogrel 600mg if ticagrelor unavailable). <span class="clinical-value cv-dose">Heparin 60 U/kg</span> IV bolus (max 4,000 U) prior to cath lab. Consider <span class="clinical-value cv-dose">Nitroglycerin 0.4mg SL</span> for pain unless RV involvement suspected.</p>
+      <div class="streaming-line"></div>
+    </div>
+  </div>
+</div>
+
+<div class="composer-area">
+  <div class="composer">
+    <input type="text" placeholder="Describe the clinical scenario..." autofocus>
+    <span class="hint">Enter to send &middot; / for commands</span>
+  </div>
+</div>
+
+<!-- Command Palette -->
+<div class="palette-overlay" id="palette">
+  <div class="palette">
+    <input type="text" placeholder="Search sessions...">
+    <div class="palette-items">
+      <div class="palette-item active">
+        <span>55M Acute Chest Pain — Inferior STEMI</span>
+        <span class="time">2 min ago</span>
+      </div>
+      <div class="palette-item">
+        <span>Warfarin + Amiodarone Interaction</span>
+        <span class="time">1 hr ago</span>
+      </div>
+      <div class="palette-item">
+        <span>Pediatric Amoxicillin Dosing</span>
+        <span class="time">Yesterday</span>
+      </div>
+      <div class="palette-item">
+        <span>COPD Exacerbation Management</span>
+        <span class="time">2 days ago</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const palette = document.getElementById('palette');
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      palette.classList.toggle('open');
+      if (palette.classList.contains('open')) {
+        palette.querySelector('input').focus();
+      }
+    }
+    if (e.key === 'Escape') palette.classList.remove('open');
+  });
+  palette.addEventListener('click', (e) => {
+    if (e.target === palette) palette.classList.remove('open');
+  });
+</script>
+</body>
+</html>
